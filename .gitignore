@@ -1,4 +1,5 @@
 *.sdf
 *.suo
 *.user
+*.opensdf
 /Test_VS2010/Release

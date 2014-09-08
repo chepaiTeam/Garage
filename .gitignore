@@ -1,0 +1,4 @@
+*.sdf
+*.suo
+*.user
+/Test_VS2010/Release

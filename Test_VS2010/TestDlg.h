@@ -46,40 +46,19 @@ typedef struct
 #include "MediaFile.h"
 #include "afxwin.h"
 #define TIMER_MAIN    WM_USER+100
+
+
 class CTestDlg : public CDialog
 {
 // Construction
 public:
-	CString GetBaseDir(const CString &path);
-	int ConvertYUVToJpgFile(char *pszFile, BYTE *pSource);
-	void EnableCaptureButton();
-	void ShowResult();
-	void ShowHideScreen();
-	void ChangeRecord(CTime time);
-	void StopSaveFile(int nChannel);
-	void StartSaveFile(int nChannel,TCHAR *pFileName,DWORD nFrameRate,int nWidth,int nHeight);
-	void StreamDirectRead(ULONG i,void *DataBuf,DWORD Length,int FrameType);
-	void InitRect();
-	void SendAndSaveData(int nChannel);
-	void SetFrameRate(int nFrameRate);
-	BYTE GetByteValue(DWORD Offset, BYTE Start,BYTE Width);
-	void SetByteValue(DWORD Offset, BYTE Start,BYTE Width,BYTE Data);
+
 	CTestDlg(CWnd* pParent = NULL);	// standard constructor
 	virtual ~CTestDlg();
 
 // Dialog Data
 	//{{AFX_DATA(CTestDlg)
-	enum { IDD = IDD_TEST_DIALOG };
-	CComboBox	m_Type;
-	CComboBox	m_Combo1;
-	CComboBox	m_Combo2;
-	CSliderCtrl	m_Slider_SH;
-	CSliderCtrl	m_Slider_Volume;
-	CSliderCtrl	m_Slider_FrameRate;
-	CSliderCtrl	m_Slider_BR;
-	CSliderCtrl	m_Slider_CO;
-	CSliderCtrl	m_Slider_SA;
-	CSliderCtrl	m_Slider_HU;
+	enum { IDD = IDD_DIALOG1 };
 	//}}AFX_DATA
 
 	// ClassWizard generated virtual function overrides
@@ -90,6 +69,13 @@ public:
 
 // Implementation
 protected:
+	CString GetBaseDir(const CString &path);
+	void ShowHideScreen();
+	void InitRect();
+	void OnButton2();
+	void OnButton3();
+	void SetParame(int nChannel);
+
 	HICON m_hIcon;
 
 	CSerialPort* m_pPort1;							//´®¿Ú1
@@ -138,52 +124,11 @@ protected:
 	virtual BOOL OnInitDialog();
 	afx_msg void OnSysCommand(UINT nID, LPARAM lParam);
 	afx_msg void OnPaint();
-	afx_msg HCURSOR OnQueryDragIcon();
-	afx_msg void OnDestroy();
-	afx_msg void OnReleasedcaptureSliderReat(NMHDR* pNMHDR, LRESULT* pResult);
-	afx_msg void OnHScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar);
-	afx_msg void OnTimer(UINT nIDEvent);
-	virtual void OnOK();
 	afx_msg void OnButtonInit();
-	afx_msg void OnButton2();
-	afx_msg void OnButton3();
-	afx_msg void OnButton4();
-	afx_msg void OnButton5();
-	afx_msg void OnButton6();
-	afx_msg void OnButton7();
-	afx_msg void OnButton8();
-	afx_msg void OnButton9();
-	afx_msg void OnButton10();
-	afx_msg void OnButton11();
-	afx_msg void OnButton12();
-	afx_msg void OnButton13();
-	afx_msg void OnButton25();
-	afx_msg void OnButton26();
-	afx_msg void OnButton27();
-	afx_msg void OnButton28();
-	afx_msg void OnButton29();
-	afx_msg void OnButton30();
-	afx_msg void OnButton31();
-	afx_msg void OnButton32();
-	afx_msg void OnButton33();
-	afx_msg void OnButton34();
-	afx_msg void OnButton35();
-	afx_msg void OnButton38();
-	afx_msg void OnButton39();
-	afx_msg void OnButton40();
-	afx_msg void OnButton41();
-	afx_msg void OnButton42();
-	afx_msg void OnButton43();
-	afx_msg void OnButton44();
-	afx_msg void OnButton45();
-	afx_msg void OnButton46();
-	afx_msg void OnButton47();
 	afx_msg void OnButton2x2();
 	afx_msg void OnButton3x3();
 	afx_msg void OnButton4x4();
 	afx_msg void OnButton6x6();
-	afx_msg void OnCloseupCombo1();
-	afx_msg void OnCloseupCombo2();
 	//}}AFX_MSG
 	afx_msg LRESULT OnMsgViewDbClick(WPARAM wParam, LPARAM lParam);
 	afx_msg LRESULT OnMsgViewClick(WPARAM wParam, LPARAM lParam);

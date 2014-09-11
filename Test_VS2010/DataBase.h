@@ -3,14 +3,7 @@
 #import "D:\Toolkits\ado-XP\msado15.dll"  rename("EOF","adoEOF"), rename("BOF","adoBOF")         
 using   namespace   ADODB;
 
-// 通过宏来控制是导入还是导出
-#ifdef DATACONN_EXPORTS
-#define DATACONN_API __declspec(dllexport)
-#else
-#define DATACONN_API __declspec(dllimport)
-#endif
-
-class DATACONN_API CDataBase
+class CDataBase
 {
 public:
 	CDataBase();

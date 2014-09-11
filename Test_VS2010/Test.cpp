@@ -79,6 +79,15 @@ BOOL CTestApp::InitInstance()
 		return FALSE;
 	}
 
+	// ≥ı ºªØsocket dll
+	WSADATA wsaData;
+	WORD socketVersion = MAKEWORD(2, 2);
+	if (::WSAStartup(socketVersion, &wsaData) != 0)
+	{
+		AfxMessageBox("Init socket dll error\n");
+		return FALSE;
+	}
+
 	CTestDlg dlg;
 	m_pMainWnd = &dlg;
 	int nResponse = dlg.DoModal();
@@ -101,7 +110,9 @@ BOOL CTestApp::InitInstance()
 int CTestApp::ExitInstance() 
 {
 	// TODO: Add your specialized code here and/or call the base class
-	
+
+	//  Õ∑≈winsockø‚
+	::WSACleanup();
 	return CWinApp::ExitInstance();
 }
 

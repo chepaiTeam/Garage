@@ -2775,3 +2775,5 @@ void CTestDlg::OnBnClickedButton37()
 		m_btnYL.SetWindowText(_T("¿ªÆôÔ¤ÀÀ"));
 	}
 }
+
+

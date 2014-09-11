@@ -2,4 +2,7 @@
 *.suo
 *.user
 *.opensdf
+*.aps
+ipch/
 /Test_VS2010/Release
+/Test_VS2010/Debug

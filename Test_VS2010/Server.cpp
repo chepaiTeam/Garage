@@ -1,224 +1,268 @@
 #include "stdafx.h"
 #include "Server.h"
 
+static SOCKET g_sCastSend;
+static SOCKET g_sTCPServer;
+static CArray<LED_INFO *, LED_INFO *&> g_LedInfos;	//Led信息结构体
 
-CServer::CServer()
+CServer::CServer(void)
 {
-	g_pBuff = NULL;
+}
 
-	ListenToClient();
+CServer::~CServer(void)
+{
+	for (int i =0; i < g_LedInfos.GetCount(); i++)
+	{
+		delete g_LedInfos.GetAt(i);
+	}
+	g_LedInfos.RemoveAll();
+
 	CloseSocket();
 }
 
-CServer::~CServer()
+void CServer::LoadLedData()
 {
+	_RecordsetPtr rs = g_DB.GetRecordset(_T("SELECT * FROM LEDInfo"));
+	while(!rs->adoEOF)
+	{
+		LED_INFO *pLedInfo = new LED_INFO;
+		CString sTemp;
+		if (rs->GetCollect(_T("Address")).vt != VT_NULL)
+		{
+			pLedInfo->sAddress = (LPCSTR)(_bstr_t)rs->GetCollect(_T("Address"));
+		}
 
+		if (rs->GetCollect(_T("Direction")).vt != VT_NULL)
+		{
+			pLedInfo->sDirection = (LPCSTR)(_bstr_t)rs->GetCollect(_T("Direction"));
+		}
+
+		if (rs->GetCollect(_T("ParkingLotNum")).vt != VT_NULL)
+		{
+			pLedInfo->uParkingLotNum = _ttoi((LPCSTR)(_bstr_t)rs->GetCollect(_T("ParkingLotNum")));
+		}
+
+		if (rs->GetCollect(_T("TextFormat")).vt != VT_NULL)
+		{
+			pLedInfo->sTextRgb = (LPCSTR)(_bstr_t)rs->GetCollect(_T("TextFormat"));
+			
+		}
+
+		if (rs->GetCollect(_T("TagFormat")).vt != VT_NULL)
+		{
+			pLedInfo->sTagRgb = (LPCSTR)(_bstr_t)rs->GetCollect(_T("TagFormat"));
+		}
+
+		if (rs->GetCollect(_T("ComNum")).vt != VT_NULL)
+		{
+			pLedInfo->nComNum = _ttoi((LPCSTR)(_bstr_t)rs->GetCollect(_T("ComNum")));
+		}
+
+		g_LedInfos.Add(pLedInfo);
+		rs->MoveNext();
+	}
+	rs->Close();
 }
 
-void CServer::ListenToClient()
+
+// 关闭socket库
+bool CServer::CloseSocket()
 {
-	// 创建socket套接字
-	SOCKET sListen = ::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-	if (SOCKET_ERROR == sListen)
+	// 关闭套接字
+	::closesocket(g_sCastSend);
+	::closesocket(g_sTCPServer);
+	return true;
+}
+
+// 初始化服务器
+bool CServer::InitServer()
+{
+	// 初始化UDP socket套接字
+	if (SOCKET_ERROR == (g_sCastSend = ::socket(AF_INET, SOCK_DGRAM, /*IPPROTO_TCP*/0)))
+	{
+		AfxMessageBox("Init Socket Error!\n");
+		return false;
+	}
+
+	// 绑定socket到一个本地地址
+	sockaddr_in Castadd;
+	Castadd.sin_family = AF_INET;
+	Castadd.sin_port = htons(SERVER_PORT_CAST);
+	Castadd.sin_addr.S_un.S_addr = INADDR_ANY;
+	if (::bind(g_sCastSend, (LPSOCKADDR)&Castadd, sizeof(sockaddr_in)) == SOCKET_ERROR)
+	{
+		AfxMessageBox("Bind Error!\n");
+		return false;
+	}
+
+	//设置socket的属性为广播 
+	bool optval=true; 
+	setsockopt(g_sCastSend, SOL_SOCKET, SO_BROADCAST, (char*)&optval, sizeof(bool));
+
+	//加载LED数据
+	LoadLedData();
+
+	//启动广播线程
+	::CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)BroadcastThread, this, 0, NULL);
+
+	//启动服务器线程
+	::CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)StartServerThread, this, 0, NULL);
+
+	return true;
+}
+
+void CServer::BroadcastThread(LPVOID pParam)
+{
+	int i;
+	LED_INFO *pLedInfo;
+	CString str1, str2;
+	CString sSql;
+	int nRedNum = 0, nTem;
+	while(g_bAppRun)
+	{
+		// 把数据广播出去
+		CCSDef::TMSG_LEDINFO tMsgLedInfo;
+		for (i = 0; i < g_LedInfos.GetCount(); i++)
+		{
+			pLedInfo = g_LedInfos.GetAt(i);
+
+			nRedNum = 0;
+			sSql.Format(_T("SELECT RedLightNum FROM ClientInfo WHERE ClientInfo.LedAddress = '%s'"), pLedInfo->sAddress);
+			_RecordsetPtr rs = g_DB.GetRecordset((_bstr_t)sSql);
+			while(!rs->adoEOF)
+			{
+				if (rs->GetCollect(_T("RedLightNum")).vt != VT_NULL)
+				{
+					nTem = _ttoi((LPCSTR)(_bstr_t)rs->GetCollect(_T("RedLightNum")));
+					if (nTem > 0)
+					{
+						nRedNum += nTem;
+					}
+				}
+				rs->MoveNext();
+			}
+			rs->Close();
+
+			nTem = pLedInfo->uParkingLotNum - nRedNum;
+
+			str1.Format(_T("%s@%s@%d@%s@%s@%d"), pLedInfo->sAddress, pLedInfo->sDirection,
+				nTem > 0 ? nTem : 0, pLedInfo->sTextRgb, pLedInfo->sTagRgb, pLedInfo->nComNum);
+			if (i == 0)
+			{
+				str2 = str1;
+			}else
+			{
+				str2 += _T("$") + str1;
+			}
+		}
+		strcpy(tMsgLedInfo.szBuff, str2);
+
+		SOCKADDR_IN dstAdd; 
+		dstAdd.sin_family = AF_INET; 
+		dstAdd.sin_port = htons(CAST_PORT);
+		dstAdd.sin_addr.s_addr = INADDR_BROADCAST;
+		if(SOCKET_ERROR == ::sendto(g_sCastSend, (char*)(&tMsgLedInfo), sizeof(CCSDef::TMSG_DEVICEINFO), 0, (SOCKADDR*)&dstAdd, sizeof(SOCKADDR)))
+		{
+			TRACE("Send Data Error!\n");
+			return;
+		}
+		Sleep(400);
+	}
+}
+
+///////////////////////////////////////////////////////////////////
+//////////////TCP   服务端
+///////////////////////////////////////////////////////////////////
+void CServer::StartServerThread(LPVOID pParam)
+{
+	// 创建TCP socket套接字
+	if (SOCKET_ERROR == (g_sTCPServer = ::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)))
 	{
 		AfxMessageBox("Init Socket Error!\n");
 		return;
 	}
 
 	// 绑定socket到一个本地地址
-	sockaddr_in sin;
-	sin.sin_family = AF_INET;
-	sin.sin_port = htons(PORT);
-	sin.sin_addr.S_un.S_addr = INADDR_ANY;
-	if (::bind(sListen, (LPSOCKADDR)&sin, sizeof(sockaddr_in)) == SOCKET_ERROR)
+	sockaddr_in TCPadd;
+	TCPadd.sin_family = AF_INET;
+	TCPadd.sin_port = htons(SERVER_PORT_TCP);
+	TCPadd.sin_addr.S_un.S_addr = INADDR_ANY;
+	if (::bind(g_sTCPServer, (LPSOCKADDR)&TCPadd, sizeof(sockaddr_in)) == SOCKET_ERROR)
 	{
 		AfxMessageBox("Bind Error!\n");
 		return;
 	}
 
 	// 设置socket进入监听状态
-	if (::listen(sListen, SOMAXCONN) == SOCKET_ERROR)
+	if (::listen(g_sTCPServer, SOMAXCONN) == SOCKET_ERROR)
 	{
 		AfxMessageBox("Listen Error!\n");
 		return;
 	}
 
-	TRACE("Listening To Client...\n");
-
-	// 循环接收client端的连接请求
-	sockaddr_in ClientAddr;
-	int nAddrLen = sizeof(sockaddr_in);
 	SOCKET sClient;
 
-	while (INVALID_SOCKET == (sClient = ::accept(sListen, (sockaddr*)&ClientAddr, &nAddrLen)))
+	while(g_bAppRun)
 	{
-	}
+		sockaddr_in ClientAddr;
+		int nAddrLen = sizeof(sockaddr_in);
 
-	while (true == ProcessMsg(sClient))
-	{
-	}
+		sClient = ::accept(g_sTCPServer, (sockaddr*)&ClientAddr, &nAddrLen);
+		if ( sClient == INVALID_SOCKET )
+		{
+			break;
+		}
 
-	// 关闭同客户端的连接
+		//启动服务器接收线程
+		::CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)STCPRecvThread, (LPVOID)sClient, 0, NULL);
+	}
 	::closesocket(sClient);
-
-	::closesocket(sListen);
 }
 
-bool CServer::CloseSocket()
+void CServer::STCPRecvThread(LPVOID pParam)
 {
-	if (NULL != g_pBuff)
-	{
-		delete [] g_pBuff;
-		g_pBuff = NULL;
-	}
+	SOCKET sClient = (SOCKET)pParam;
 
-	return true;
+	// 循环接收client端的连接请求
+	long g_lLength;
+	char g_szFileName[MAXFILEDIRLENGTH];
+	char g_szBuff[MAX_PACKET_SIZE + 1];
+
+	while(g_bAppRun)
+	{
+		memset(g_szBuff, 0, sizeof(g_szBuff));
+		int nRecv = ::recv(sClient, g_szBuff, MAX_PACKET_SIZE + 1, 0);
+		if (nRecv == 0 || nRecv == SOCKET_ERROR)
+		{
+			TCHAR("客服端关闭");
+			break;
+		}
+
+		if (nRecv > 0)
+		{
+			g_szBuff[nRecv] = '\0';
+		}
+
+		// 解析命令
+		CCSDef::TMSG_HEADER* pMsgHeader = (CCSDef::TMSG_HEADER*)g_szBuff;
+
+		switch (pMsgHeader->cMsgID)
+		{
+		case MSG_LEDINFO: 
+			{
+				//OpenFileError(pMsgHeader);
+			}
+			break;
+		case MSG_DEVICEINFO:
+			{
+				CCSDef::TMSG_DEVICEINFO* pDeviceInfoMsg = (CCSDef::TMSG_DEVICEINFO*)pMsgHeader;
+				CString sSql;
+				sSql.Format(_T("UPDATE ClientInfo SET RedLightNum = %d, GreenLightNum = %d, NoneLightNum = %d WHERE ClientID = '%s'"),
+					pDeviceInfoMsg->nRedLightNum, pDeviceInfoMsg->nGreenLightNum, pDeviceInfoMsg->nNoneLightNum, pDeviceInfoMsg->szDeviceName);
+				g_DB.ExecuteSQL((_bstr_t)sSql);
+			}
+			break;
+		}
+	}
 }
 
-bool CServer::ProcessMsg(SOCKET sClient)
-{
-	int nRecv = ::recv(sClient, g_szBuff, MAX_PACKET_SIZE + 1, 0);
-	if (nRecv > 0)
-	{
-		g_szBuff[nRecv] = '\0';
-	}
-
-	// 解析命令
-	CCSDef::TMSG_HEADER* pMsgHeader = (CCSDef::TMSG_HEADER*)g_szBuff;
-	switch (pMsgHeader->cMsgID)
-	{
-	case MSG_FILENAME:    // 文件名
-		{
-			OpenFile(pMsgHeader, sClient);
-		}
-		break;
-	case MSG_CLIENT_READY:   // 客户端准备好了,开始传送文件
-		{
-			SendFile(sClient);
-		}
-		break;
-	case MSG_SENDFILESUCCESS: // 传送文件成功
-		{
-			TRACE("Send File Success!\n");
-			return false;
-		}
-		break;
-	case MSG_FILEALREADYEXIT_ERROR: // 要保存的文件已经存在了
-		{
-			TRACE("The file reay to send already exit!\n");
-			return false;
-		}
-		break;
-	}
-
-	return true;
-}
-
-bool CServer::ReadFile(SOCKET sClient)
-{
-	if (NULL != g_pBuff)
-	{
-		return true;
-	}
-
-	// 打开文件
-	FILE *pFile;
-	if (NULL == (pFile = fopen(g_szNewFileName, "rb")))   // 打开文件失败
-	{
-		TRACE("Cannot find the file, request the client input file name again\n");
-		CCSDef::TMSG_ERROR_MSG tMsgErrorMsg(MSG_OPENFILE_ERROR);
-		::send(sClient, (char*)(&tMsgErrorMsg), sizeof(CCSDef::TMSG_ERROR_MSG), 0);
-		return false;
-	}
-
-	// 把文件的长度传回到client去
-	fseek(pFile, 0, SEEK_END);
-	g_lLength = ftell(pFile);
-	TRACE("File Length = %d\n", g_lLength);
-	CCSDef::TMSG_FILELENGTH tMsgFileLength(g_lLength);
-	::send(sClient, (char*)(&tMsgFileLength), sizeof(CCSDef::TMSG_FILELENGTH), 0);
-
-	// 处理文件全路径名,把文件名分解出来
-	char szDrive[_MAX_DRIVE], szDir[_MAX_DIR], szFname[_MAX_FNAME], szExt[_MAX_EXT];
-	_splitpath(g_szNewFileName, szDrive, szDir, szFname, szExt);
-	strcat(szFname,szExt);
-	CCSDef::TMSG_FILENAME tMsgFileName;
-	strcpy(tMsgFileName.szFileName, szFname);
-	TRACE("Send File Name: %s\n", tMsgFileName.szFileName);
-	::send(sClient, (char*)(&tMsgFileName), sizeof(CCSDef::TMSG_FILENAME), 0);
-
-	// 分配缓冲区读取文件内容
-	g_pBuff = new char[g_lLength + 1];
-	if (NULL == g_pBuff)
-	{
-		return false;
-	}
-
-	fseek(pFile, 0, SEEK_SET);
-	fread(g_pBuff, sizeof(char), g_lLength, pFile);
-	g_pBuff[g_lLength] = '\0';
-	fclose(pFile);
-
-	return true;
-}
-
-// 打开文件
-bool CServer::OpenFile(CCSDef::TMSG_HEADER* pMsgHeader, SOCKET sClient)
-{
-	CCSDef::TMSG_FILENAME* pRequestFilenameMsg = (CCSDef::TMSG_FILENAME*)pMsgHeader;
-
-	// 对文件路径名进行一些处理
-	char *p1, *p2;
-	for (p1 = pRequestFilenameMsg->szFileName, p2 = g_szNewFileName;
-		'\0' != *p1;
-		++p1, ++p2)
-	{
-		if ('\n' != *p1)
-		{
-			*p2 = *p1;
-		}
-		if ('\\' == *p2)
-		{
-			*(++p2) = '\\';
-		}
-	}
-	*p2 = '\0';
-
-	ReadFile(sClient);
-
-	return true;
-}
-
-// 传送文件
-bool CServer::SendFile(SOCKET sClient)
-{
-	if (NULL == g_pBuff)
-	{
-		ReadFile(sClient);
-	}
-
-	int nPacketBufferSize = MAX_PACKET_SIZE - 2 * sizeof(int); // 每个数据包存放文件的buffer大小
-	// 如果文件的长度大于每个数据包所能传送的buffer长度那么就分块传送
-	for (int i = 0; i < g_lLength; i += nPacketBufferSize)
-	{  
-		CCSDef::TMSG_FILE tMsgFile;
-		tMsgFile.tFile.nStart = i;
-		if (i + nPacketBufferSize + 1> g_lLength)
-		{
-			tMsgFile.tFile.nSize = g_lLength - i;
-		}
-		else
-		{
-			tMsgFile.tFile.nSize = nPacketBufferSize;
-		}
-		//AfxMessageBox("start = %d, size = %d\n", tMsgFile.tFile.nStart, tMsgFile.tFile.nSize);
-		memcpy(tMsgFile.tFile.szBuff, g_pBuff + tMsgFile.tFile.nStart, tMsgFile.tFile.nSize);
-		::send(sClient, (char*)(&tMsgFile), sizeof(CCSDef::TMSG_FILE), 0);
-		Sleep(0.5);
-	}
-
-	delete [] g_pBuff;
-	g_pBuff = NULL;
-
-	return true;
-}

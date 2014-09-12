@@ -137,12 +137,12 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="AviFileObj.cpp" />
-    <ClCompile Include="Client.cpp" />
+    <ClCompile Include="Server.cpp" />
     <ClCompile Include="CvvImage.cpp" />
     <ClCompile Include="DataBase.cpp" />
     <ClCompile Include="MediaFile.cpp" />
     <ClCompile Include="SerialPort.cpp" />
-    <ClCompile Include="Server.cpp" />
+    <ClCompile Include="Client.cpp" />
     <ClCompile Include="StdAfx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">stdafx.h</PrecompiledHeaderFile>
@@ -158,14 +158,14 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AviFileObj.h" />
-    <ClInclude Include="Client.h" />
+    <ClInclude Include="Server.h" />
     <ClInclude Include="CSDef.h" />
     <ClInclude Include="CvvImage.h" />
     <ClInclude Include="DataBase.h" />
     <ClInclude Include="MediaFile.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="SerialPort.h" />
-    <ClInclude Include="Server.h" />
+    <ClInclude Include="Client.h" />
     <ClInclude Include="StdAfx.h" />
     <ClInclude Include="Test.h" />
     <ClInclude Include="TestDlg.h" />

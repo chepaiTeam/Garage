@@ -1,31 +1,44 @@
-#pragma once
 #include "CSDef.h"
+
 
 class CClient
 {
 public:
-	CClient(void);
-	~CClient(void);
+	CClient();
+	~CClient();
 protected:
-	long g_lLength;
-	char* g_pBuff;
-	char g_szFileName[MAXFILEDIRLENGTH];
-	char g_szBuff[MAX_PACKET_SIZE + 1];
-	SOCKET g_sClient;
+
 public:
-	// 关闭socket库
-	bool CloseSocket();
-	// 把用户输入的文件路径传送到server端
-	bool SendFileNameToServer();
-	// 与server端连接
+	// 监听Client的消息
+	void InitClient();
+
 	bool ConectToServer();
-	// 打开文件失败
-	bool OpenFileError(CCSDef::TMSG_HEADER *pMsgHeader);
-	// 分配空间以便写入文件
-	bool AllocateMemoryForFile(CCSDef::TMSG_HEADER *pMsgHeader);
-	// 写入文件
-	bool WriteToFile(CCSDef::TMSG_HEADER *pMsgHeader);
-	// 处理server端传送过来的消息
-	bool ProcessMsg();
+
+	bool CloseSocket();
+
+	/// <summary> 
+	/// 广播接收消息线程
+	/// </summary> 
+	static void CCastRecvThread(LPVOID pParam);
+
+	/// <summary> 
+	/// 解析广播数据
+	/// </summary> 
+	static void CJXDataThread(LPVOID pParam);
+
+	/// <summary> 
+	/// 启动客服端线程
+	/// </summary> 
+	static void StartClientThread(LPVOID pParam);
+
+	/// <summary> 
+	/// 发送消息到服务器线程
+	/// </summary> 
+	static void CTCPSendThread(LPVOID pParam);
+
+	/// <summary> 
+	/// 接收服务器消息线程
+	/// </summary> 
+	static void CTCPRecvThread(LPVOID pParam);
 };
 

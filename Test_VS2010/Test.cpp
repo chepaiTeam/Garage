@@ -79,6 +79,9 @@ BOOL CTestApp::InitInstance()
 		return FALSE;
 	}
 
+	g_nNetType = GetIniInt(_T("NetData"), _T("NetType"), NETTYPE_CLIENT);
+	g_sDeviceID = GetIniString(_T("Device"), _T("DeviceID"), _T("0"));
+
 	// ≥ı ºªØsocket dll
 	WSADATA wsaData;
 	WORD socketVersion = MAKEWORD(2, 2);
@@ -87,6 +90,8 @@ BOOL CTestApp::InitInstance()
 		AfxMessageBox("Init socket dll error\n");
 		return FALSE;
 	}
+
+	g_bAppRun = true;
 
 	CTestDlg dlg;
 	m_pMainWnd = &dlg;
@@ -110,6 +115,10 @@ BOOL CTestApp::InitInstance()
 int CTestApp::ExitInstance() 
 {
 	// TODO: Add your specialized code here and/or call the base class
+
+	CString str;
+	str.Format(_T("%d"), g_nNetType);
+	g_nNetType = WriteIniString(_T("NetData"), _T("NetType"), str);
 
 	//  Õ∑≈winsockø‚
 	::WSACleanup();

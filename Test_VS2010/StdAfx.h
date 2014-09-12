@@ -97,10 +97,32 @@ typedef enum {
 
 //#pragma comment(lib, "msimg32.lib")
 
+typedef struct
+{
+	int nID;					//ID
+	int nLightColor;			//灯颜色，0 无；1 红；2 绿
+	int nBaseNum;				//检测基数
+	int nOffset;				//检测基数偏移量
+	int nRectX;					//
+	int nRectY;					//
+	int nRectW;					//
+	int nRectH;					//
+} CAM_INFO, *pCAM_INFO;
+
 
 #include "Database.h"
 extern CDataBase g_DB;
 
+extern bool g_bAppRun;								//程序运行标志
+
+extern CString g_sDeviceID;								//设备编号
+
+extern int g_nNetType;								//该控制程序的网络类型 NETTYPE_CLIENT:客户端  NETTYPE_SERVER：服务器
+
+extern CArray<CAM_INFO *, CAM_INFO *&> g_pCamInfos;							//相机信息结构体
+
+extern CSerialPort* g_pPort1;							//串口1
+extern CSerialPort* g_pPort2;							//串口2
 
 //{{AFX_INSERT_LOCATION}}
 // Microsoft Visual C++ will insert additional declarations immediately before the previous line.

@@ -14,6 +14,10 @@
 
 #include "resource.h"		// main symbols
 
+
+#define	NETTYPE_CLIENT 1
+#define	NETTYPE_SERVER 2
+
 #define SYSSETPATHNAME   _T(".\\SysSet.ini")
 
 /////////////////////////////////////////////////////////////////////////////
@@ -47,9 +51,10 @@ public:
 		//    DO NOT EDIT what you see in these blocks of generated code !
 	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
+public:
 };
 
-
+extern CTestApp theApp;
 /////////////////////////////////////////////////////////////////////////////
 
 //{{AFX_INSERT_LOCATION}}

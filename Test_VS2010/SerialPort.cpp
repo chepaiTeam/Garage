@@ -1133,5 +1133,9 @@ DWORD CSerialPort::WriteToPort(CString str)
 
 	memcpy(m_szWriteBuffer, str.GetBuffer(str.GetLength()), length);
 
-	return WriteToPort(m_szWriteBuffer, length);
+	DWORD dw =  WriteToPort(m_szWriteBuffer, length);
+
+	free(m_szWriteBuffer);
+
+	return dw;
 }

@@ -4,5 +4,5 @@
 *.opensdf
 *.aps
 ipch/
-/Test_VS2010/Release
-/Test_VS2010/Debug
+/CarPark/Release
+/CarPark/Debug

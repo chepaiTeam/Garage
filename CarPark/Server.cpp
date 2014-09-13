@@ -17,7 +17,7 @@ CServer::~CServer(void)
 	}
 	g_LedInfos.RemoveAll();
 
-	CloseSocket();
+	//CloseSocket();
 }
 
 void CServer::LoadLedData()

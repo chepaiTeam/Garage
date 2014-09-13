@@ -13,7 +13,7 @@ CClient::CClient()
 
 CClient::~CClient()
 {
-	CloseSocket();
+	//CloseSocket();
 }
 
 // ¹Ø±Õsocket¿â

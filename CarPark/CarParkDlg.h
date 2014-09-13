@@ -1,40 +1,27 @@
-// TestDlg.h : header file
+
+// CarParkDlg.h : 头文件
 //
 
-#if !defined(AFX_TESTDLG_H__C89B8F3E_20E0_4E86_9848_B527C645A545__INCLUDED_)
-#define AFX_TESTDLG_H__C89B8F3E_20E0_4E86_9848_B527C645A545__INCLUDED_
-
-#if _MSC_VER > 1000
 #pragma once
-#endif // _MSC_VER > 1000
 
 
-
-/////////////////////////////////////////////////////////////////////////////
-// CTestDlg dialog
-#include "VideoView.h"
-#include "afxwin.h"
 #include "Server.h"
 #include "Client.h"
 
-class CTestDlg : public CDialog
+// CCarParkDlg 对话框
+class CCarParkDlg : public CDialogEx
 {
-// Construction
+// 构造
 public:
-	CTestDlg(CWnd* pParent = NULL);	// standard constructor
-	virtual ~CTestDlg();
+	CCarParkDlg(CWnd* pParent = NULL);	// 标准构造函数
+	virtual ~CCarParkDlg();
 
-// Dialog Data
-	//{{AFX_DATA(CTestDlg)
-	enum { IDD = IDD_DIALOG1 };
-	//}}AFX_DATA
+// 对话框数据
+	enum { IDD = IDD_CARPARK_DIALOG };
 
-	// ClassWizard generated virtual function overrides
-	//{{AFX_VIRTUAL(CTestDlg)
 	protected:
-	virtual void DoDataExchange(CDataExchange* pDX);	// DDX/DDV support
-	//}}AFX_VIRTUAL
-
+	virtual void DoDataExchange(CDataExchange* pDX);	// DDX/DDV 支持
+	
 //Data
 protected:
 	CString strDir;									//SetDefaultDisplayPicture 默认显示图片
@@ -47,7 +34,6 @@ protected:
 	//CVideoView m_SrcVideoView, m_ConVideoView;
 	CVideoView *m_pVideoView[MAX_VIDEO_CHANNEL];	//子视频框窗体绑定
 
-	CArray<BYTE *, BYTE *&> m_aBuffers;				//通道缓存数据
 	CStatic m_stcXD[4];								//选中通道信号量
 	CEdit m_edtXH[4];								//设置选中通道信号量阀值
 	int m_nIDs[4];									//当前选中通道的4个摄像头ID
@@ -63,6 +49,8 @@ protected:
 	CServer *m_pServer;
 	//客户端
 	CClient *m_pClient;
+	//设备是否初始化
+	BOOL m_bDeviceInit;
 
 // Implementation
 protected:
@@ -94,28 +82,30 @@ protected:
 	static void CamThread(LPVOID pParam);
 	static void CVData(LPVOID pParam);
 
+// 实现
 protected:
-	// Generated message map functions
-	//{{AFX_MSG(CTestDlg)
+	HICON m_hIcon;
+
+	// 生成的消息映射函数
 	virtual BOOL OnInitDialog();
+	virtual BOOL PreTranslateMessage(MSG* pMsg);
+	virtual BOOL DestroyWindow();
+
+	afx_msg void OnPaint();
 	afx_msg void OnSize(UINT nType, int cx, int cy);
+
 	afx_msg void OnButton2x2();
 	afx_msg void OnButton3x3();
 	afx_msg void OnButton4x4();
 	afx_msg void OnButton6x6();
-	//}}AFX_MSG
+
+	afx_msg HCURSOR OnQueryDragIcon();
+
 	afx_msg LRESULT OnMsgViewDbClick(WPARAM wParam, LPARAM lParam);
 	afx_msg LRESULT OnMsgViewClick(WPARAM wParam, LPARAM lParam);
 
-	afx_msg void OnBnClickedButton36();
-	afx_msg void OnBnClickedButton37();
+	afx_msg void OnBnClickedButtonSave();
+	afx_msg void OnBnClickedButtonOpenView();
+
 	DECLARE_MESSAGE_MAP()
-
-public:
-	virtual BOOL PreTranslateMessage(MSG* pMsg);
 };
-
-//{{AFX_INSERT_LOCATION}}
-// Microsoft Visual C++ will insert additional declarations immediately before the previous line.
-
-#endif // !defined(AFX_TESTDLG_H__C89B8F3E_20E0_4E86_9848_B527C645A545__INCLUDED_)

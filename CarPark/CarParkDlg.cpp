@@ -1,15 +1,18 @@
-// TestDlg.cpp : implementation file
+
+// CarParkDlg.cpp : 实现文件
 //
 
 #include "stdafx.h"
-#include "Test.h"
-#include "TestDlg.h"
-//#include "JpegFile.h"
+#include "CarPark.h"
+#include "CarParkDlg.h"
+#include "afxdialogex.h"
+
 #ifdef _DEBUG
 #define new DEBUG_NEW
-#undef THIS_FILE
-static char THIS_FILE[] = __FILE__;
 #endif
+
+
+// CCarParkDlg 对话框
 
 #define max(a,b)            (((a) > (b)) ? (a) : (b))
 #define min(a,b)            (((a) < (b)) ? (a) : (b))
@@ -21,7 +24,7 @@ typedef struct
 	int i;
 	int j;
 	BYTE *TempBuffer;
-	CTestDlg *ui;	//
+	CCarParkDlg *ui;	//
 } CV_INFO, *pCV_INFO;
 
 /////////////////////////////////////////////////////////////////////////////
@@ -30,17 +33,21 @@ int g_TotalDSPs = 0;
 int g_TotalChannel = 0;
 HANDLE g_hDSP[MAX_VIDEO_CHANNEL];
 
-// CTestDlg dialog
 
-CTestDlg::CTestDlg(CWnd* pParent /*=NULL*/)
-	: CDialog(CTestDlg::IDD, pParent)
+
+
+CCarParkDlg::CCarParkDlg(CWnd* pParent /*=NULL*/)
+	: CDialogEx(CCarParkDlg::IDD, pParent)
 {
+	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
+
 	for(int i = 0; i < MAX_VIDEO_CHANNEL; i++)
 	{
-		g_hDSP[i] = NULL;
+		g_hDSP[i] = (HANDLE)0xffffffff;
 		m_pVideoView[i] = NULL;
 	}
 
+	m_bDeviceInit = FALSE;
 	m_nViewMode = 4;
 	g_pPort1 = NULL;
 	g_pPort2 = NULL;
@@ -48,51 +55,8 @@ CTestDlg::CTestDlg(CWnd* pParent /*=NULL*/)
 	m_pClient = NULL;
 }
 
-CTestDlg::~CTestDlg()
+CCarParkDlg::~CCarParkDlg()
 {
-	g_bAppRun = false;
-
-	for(int i = 0; i<g_TotalChannel; i++)
-	{
-		if(g_hDSP[i]!= (HANDLE) 0xffffffff)
-		{
-			StopDsp(g_hDSP[i]);
-		}
-	}
-	Sleep(1);
-	for(int i = 0; i<g_TotalChannel; i++)
-	{
-		if(g_hDSP[i]!= (HANDLE) 0xffffffff)
-		{
-			ChannelClose(g_hDSP[i]);
-		}
-	}
-	DeInitDSPs();
-
-	if (g_pPort1)
-	{
-		g_pPort1->StopMonitoring();
-		delete g_pPort1;
-	}
-	
-	if (m_pServer)
-	{
-		delete m_pServer;
-		m_pServer = NULL;
-	}
-
-	if (m_pClient)
-	{
-		delete m_pClient;
-		m_pClient = NULL;
-	}
-
-	if (g_pPort2)
-	{
-		g_pPort2->StopMonitoring();
-		delete g_pPort2;
-	}
-
 	for (int i = 0; i < MAX_VIDEO_CHANNEL; i++)
 	{
 		if (m_pVideoView[i])
@@ -102,12 +66,6 @@ CTestDlg::~CTestDlg()
 		}
 	}
 
-	for (int i = 0; i < m_aBuffers.GetCount(); i++)
-	{
-		delete m_aBuffers.GetAt(i);
-	}
-	m_aBuffers.RemoveAll();
-
 	for (int i = 0; i < g_pCamInfos.GetCount(); i++)
 	{
 		delete g_pCamInfos.GetAt(i);
@@ -115,48 +73,55 @@ CTestDlg::~CTestDlg()
 	g_pCamInfos.RemoveAll();
 }
 
-void CTestDlg::DoDataExchange(CDataExchange* pDX)
+void CCarParkDlg::DoDataExchange(CDataExchange* pDX)
 {
-	CDialog::DoDataExchange(pDX);
-	//{{AFX_DATA_MAP(CTestDlg)
+	CDialogEx::DoDataExchange(pDX);
+	//{{AFX_DATA_MAP(CCarParkDlg)
 	DDX_Control(pDX, IDC_STC_XD1, m_stcXD[0]);
 	DDX_Control(pDX, IDC_STC_XD2, m_stcXD[1]);
 	DDX_Control(pDX, IDC_STC_XD3, m_stcXD[2]);
 	DDX_Control(pDX, IDC_STC_XD4, m_stcXD[3]);
 	DDX_Control(pDX, IDC_CBOXD, m_cboXD);
-	DDX_Control(pDX, IDC_EDIT3, m_edtXH[0]);
-	DDX_Control(pDX, IDC_EDIT4, m_edtXH[1]);
-	DDX_Control(pDX, IDC_EDIT6, m_edtXH[2]);
-	DDX_Control(pDX, IDC_EDIT5, m_edtXH[3]);
-	DDX_Control(pDX, IDC_BUTTON36, m_btnBC);
-	DDX_Control(pDX, IDC_BUTTON37, m_btnYL);
-	//}}AFX_DATA_MAP
+	DDX_Control(pDX, IDC_EDIT1, m_edtXH[0]);
+	DDX_Control(pDX, IDC_EDIT2, m_edtXH[1]);
+	DDX_Control(pDX, IDC_EDIT3, m_edtXH[2]);
+	DDX_Control(pDX, IDC_EDIT4, m_edtXH[3]);
+	DDX_Control(pDX, IDC_BUTTONSAVE, m_btnBC);
+	DDX_Control(pDX, IDC_BUTTONOPEN, m_btnYL);
 	DDX_Control(pDX, IDC_STATIC_NET, m_stcNet);
 	DDX_Control(pDX, IDC_RADIO1, m_rdoClient);
 	DDX_Control(pDX, IDC_RADIO2, m_rdoServer);
+	//}}AFX_DATA_MAP
 }
 
-BEGIN_MESSAGE_MAP(CTestDlg, CDialog)
-	//{{AFX_MSG_MAP(CTestDlg)
+BEGIN_MESSAGE_MAP(CCarParkDlg, CDialogEx)
+	ON_WM_PAINT()
+	ON_WM_QUERYDRAGICON()
+	ON_WM_SIZE()
 	ON_BN_CLICKED(IDC_BUTTON2X2, OnButton2x2)
 	ON_BN_CLICKED(IDC_BUTTON3X3, OnButton3x3)
 	ON_BN_CLICKED(IDC_BUTTON4X4, OnButton4x4)
 	ON_BN_CLICKED(IDC_BUTTON6X6, OnButton6x6)
+	ON_BN_CLICKED(IDC_BUTTONSAVE, OnBnClickedButtonSave)
+	ON_BN_CLICKED(IDC_BUTTONOPEN, OnBnClickedButtonOpenView)
+
 	ON_MESSAGE(WM_VIEW_CLICK, OnMsgViewClick)
 	ON_MESSAGE(WM_VIEW_DBCLICK, OnMsgViewDbClick)
-	ON_BN_CLICKED(IDC_BUTTON36, &CTestDlg::OnBnClickedButton36)
-	ON_BN_CLICKED(IDC_BUTTON37, &CTestDlg::OnBnClickedButton37)
-	//}}AFX_MSG_MAP
-	ON_WM_SIZE()
 END_MESSAGE_MAP()
 
-/////////////////////////////////////////////////////////////////////////////
-// CTestDlg message handlers
 
-BOOL CTestDlg::OnInitDialog()
+// CCarParkDlg 消息处理程序
+
+BOOL CCarParkDlg::OnInitDialog()
 {
-	CDialog::OnInitDialog();
+	CDialogEx::OnInitDialog();
 
+	// 设置此对话框的图标。当应用程序主窗口不是对话框时，框架将自动
+	//  执行此操作
+	SetIcon(m_hIcon, TRUE);			// 设置大图标
+	SetIcon(m_hIcon, FALSE);		// 设置小图标
+
+	// TODO: 在此添加额外的初始化代码
 	//ShowWindow(SW_SHOWMAXIMIZED);
 	CString sTitle;
 	sTitle.Format(_T("设备号：%s"), g_sDeviceID);
@@ -170,9 +135,13 @@ BOOL CTestDlg::OnInitDialog()
 	// TODO: Add extra initialization here
 	for (int i = 0; i < MAX_VIDEO_CHANNEL; i++)
 	{
-		g_hDSP[i] = (HANDLE)0xffffffff;
 		m_pVideoView[i] = new CVideoView();
 		m_pVideoView[i]->Create(_T("Video Static"), WS_CHILD|WS_VISIBLE|SS_CENTER, CRect(0, 0, 10, 10), this, ID_VIDEOSTATIC + i);
+	}
+
+	for(int i = 0;i<MAX_VIDEO_CHANNEL;i++)
+	{
+		g_hDSP[i] = (HANDLE)0xffffffff;
 	}
 
 	ConfigSubChannelSplit(7, 2);
@@ -211,7 +180,6 @@ BOOL CTestDlg::OnInitDialog()
 		MessageBox(_T("连接设备失败，请检查相关接口！"), _T("警告"), MB_ICONERROR|MB_OK);
 	}
 
-
 	if (g_nNetType == NETTYPE_CLIENT)
 	{
 		m_rdoClient.SetCheck(TRUE);
@@ -225,12 +193,48 @@ BOOL CTestDlg::OnInitDialog()
 	m_pClient = new CClient;
 	m_pClient->InitClient();
 
-	return TRUE;// return TRUE  unless you set the focus to a control
+	return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE
 }
 
-void CTestDlg::CamThread(LPVOID pParam)
+// 如果向对话框添加最小化按钮，则需要下面的代码
+//  来绘制该图标。对于使用文档/视图模型的 MFC 应用程序，
+//  这将由框架自动完成。
+
+void CCarParkDlg::OnPaint()
 {
-	CTestDlg *ui = (CTestDlg*)pParam;
+	if (IsIconic())
+	{
+		CPaintDC dc(this); // 用于绘制的设备上下文
+
+		SendMessage(WM_ICONERASEBKGND, reinterpret_cast<WPARAM>(dc.GetSafeHdc()), 0);
+
+		// 使图标在工作区矩形中居中
+		int cxIcon = GetSystemMetrics(SM_CXICON);
+		int cyIcon = GetSystemMetrics(SM_CYICON);
+		CRect rect;
+		GetClientRect(&rect);
+		int x = (rect.Width() - cxIcon + 1) / 2;
+		int y = (rect.Height() - cyIcon + 1) / 2;
+
+		// 绘制图标
+		dc.DrawIcon(x, y, m_hIcon);
+	}
+	else
+	{
+		CDialogEx::OnPaint();
+	}
+}
+
+//当用户拖动最小化窗口时系统调用此函数取得光标
+//显示。
+HCURSOR CCarParkDlg::OnQueryDragIcon()
+{
+	return static_cast<HCURSOR>(m_hIcon);
+}
+
+void CCarParkDlg::CamThread(LPVOID pParam)
+{
+	CCarParkDlg *ui = (CCarParkDlg*)pParam;
 
 	//CWnd *bt = ui->GetDlgItem(IDC_BUTTON42);
 
@@ -283,7 +287,6 @@ void CTestDlg::CamThread(LPVOID pParam)
 			break;
 		}
 
-
 		for (i = nBinXD; (i < nEndXD) && g_bAppRun; i++)
 		{
 			str.Format(_T("@1A%d&"), i + 1);
@@ -295,18 +298,28 @@ void CTestDlg::CamThread(LPVOID pParam)
 
 			for (j = 0; (j < g_TotalChannel) && g_bAppRun; j++)
 			{	
-				if(g_hDSP[j] != (HANDLE) 0xffffffff)
+				if(g_hDSP[j] != (HANDLE)0xffffffff)
 				{
-					result = GetOriginalImage(g_hDSP[j], ui->m_aBuffers[j], &size);
+					//分配通道缓存数据
+					BYTE *TempBuf = new BYTE[1024 * 1024];
+
+					result = GetOriginalImage(g_hDSP[j], TempBuf, &size);
 
 					CV_INFO *pCvInfo = new CV_INFO;
 					pCvInfo->i = i;
 					pCvInfo->j = j;
 					pCvInfo->ui = ui;
-					pCvInfo->TempBuffer = ui->m_aBuffers[j];
+					pCvInfo->TempBuffer = TempBuf;
 					if(result == 0)
 					{
 						::CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)CVData, pCvInfo, 0, NULL);
+					}else
+					{
+						delete[] TempBuf;
+						TempBuf = NULL;
+
+						delete pCvInfo;
+						pCvInfo = NULL;
 					}
 				}
 			}//End For
@@ -321,10 +334,10 @@ void CTestDlg::CamThread(LPVOID pParam)
 	}
 }
 
-void CTestDlg::CVData(LPVOID pParam)
+void CCarParkDlg::CVData(LPVOID pParam)
 {
 	CV_INFO *pCvInfo = (CV_INFO*)pParam;
-	CTestDlg *ui = pCvInfo->ui;
+	CCarParkDlg *ui = pCvInfo->ui;
 	BYTE *TempBuffer = pCvInfo->TempBuffer;
 	int i = pCvInfo->i;
 	int j = pCvInfo->j;
@@ -426,7 +439,7 @@ void CTestDlg::CVData(LPVOID pParam)
 	memcpy(pImg->imageData, buf, nSize);
 
 	cvSetImageROI(pImg, ROIRect);
-	cvCopy(pImg, pImgEx, 0);
+	cvCopy(pImg, pImgEx);
 	cvResetImageROI(pImg);
 
 	//cvRectangle(pImg, cvPoint( ROIRect.x, ROIRect.y ), cvPoint( ROIRect.x + ROIRect.width, ROIRect.y + ROIRect.height-2 ), cvScalar(200, 0, 0, 0), 1, 8, 0);
@@ -536,11 +549,14 @@ void CTestDlg::CVData(LPVOID pParam)
 	delete[] buf;
 	buf = NULL;
 
+	delete[] pCvInfo->TempBuffer;
+	pCvInfo->TempBuffer = NULL;
+
 	delete pCvInfo;
 	pCvInfo = NULL;
 }
 
-void CTestDlg::DeviceInit() 
+void CCarParkDlg::DeviceInit() 
 {
 	// TODO: Add your control notification handler code here
 	int i;
@@ -553,16 +569,12 @@ void CTestDlg::DeviceInit()
 	for(i = 0; i < g_TotalChannel; i++)
 	{
 		g_hDSP[i] = ChannelOpen(i);
-
-		//分配通道缓存数据
-		BYTE *TempBuf = new BYTE[1024 * 1024];
-		m_aBuffers.Add(TempBuf);
 	}
 
 	//设置摄像头参数
 	ParameInit();
 
-	if(g_hDSP[m_Current]!= (HANDLE) 0xffffffff)
+	if(g_hDSP[m_Current] != (HANDLE) 0xffffffff)
 	{
 		TCHAR szFile[256];
 		__stprintf(szFile, _T("%s//bk.dll"), strDir);
@@ -573,9 +585,11 @@ void CTestDlg::DeviceInit()
 	GpioInit(1, 0xffffff00);
 
 	LoadCamData();
+
+	m_bDeviceInit = TRUE;
 }
 
-void CTestDlg::StartDevice() 
+void CCarParkDlg::StartDevice() 
 {
 	int i;
 	for( i = 0; i < g_TotalChannel; i++)
@@ -590,10 +604,10 @@ void CTestDlg::StartDevice()
 	}
 }
 
-void CTestDlg::ParameInit()
+void CCarParkDlg::ParameInit()
 {
 	//StopAllDSPs();
-	for(int nChannel = 0; nChannel<g_TotalChannel; nChannel++)
+	for(int nChannel = 0; nChannel < g_TotalChannel; nChannel++)
 	{
 		if(g_hDSP[nChannel]!= (HANDLE) 0xffffffff)
 		{
@@ -636,7 +650,7 @@ void CTestDlg::ParameInit()
 			//设置帧频
 			SetVideoFrameRate(g_hDSP[nChannel], nFrameRate);
 
-			SetOsd(g_hDSP[nChannel],true);
+			SetOsd(g_hDSP[nChannel],false);
 
 			int nBr = 100;	
 			int nCo = 100;	
@@ -690,7 +704,7 @@ void CTestDlg::ParameInit()
 	}
 }
 
-void CTestDlg::LoadCamData()
+void CCarParkDlg::LoadCamData()
 {
 	if (g_TotalChannel > 0)
 	{
@@ -767,7 +781,7 @@ void CTestDlg::LoadCamData()
 	}
 }
 
-LRESULT CTestDlg::OnMsgViewDbClick(WPARAM wParam, LPARAM lParam)
+LRESULT CCarParkDlg::OnMsgViewDbClick(WPARAM wParam, LPARAM lParam)
 {
 	RECT m_rect;
 	m_bOne = !m_bOne;
@@ -786,7 +800,7 @@ LRESULT CTestDlg::OnMsgViewDbClick(WPARAM wParam, LPARAM lParam)
 		ShowHideScreen();
 	}
 
-	for( i = 0; i<g_TotalChannel; i++)
+	for( i = 0; i < g_TotalChannel; i++)
 	{
 
 		if(g_hDSP[i]!= (HANDLE) 0xffffffff)
@@ -800,14 +814,14 @@ LRESULT CTestDlg::OnMsgViewDbClick(WPARAM wParam, LPARAM lParam)
 	return 0;
 }
 
-LRESULT CTestDlg::OnMsgViewClick(WPARAM wParam, LPARAM lParam)
+LRESULT CCarParkDlg::OnMsgViewClick(WPARAM wParam, LPARAM lParam)
 {
 	m_Current = wParam;
 	return 0;
 }
 
 #define VIDEO_CLEARANCE 1
-void CTestDlg::ShowHideScreen()
+void CCarParkDlg::ShowHideScreen()
 {
 	int nIndex = 0;
 	CRect rect, m_rOneVid(m_Onerect);
@@ -846,31 +860,31 @@ void CTestDlg::ShowHideScreen()
 	UpdateVideoPreview();
 }
 
-void CTestDlg::OnButton2x2() 
+void CCarParkDlg::OnButton2x2() 
 {
 	m_nViewMode = 2;
 	ShowHideScreen();
 }
 
-void CTestDlg::OnButton3x3() 
+void CCarParkDlg::OnButton3x3() 
 {
 	m_nViewMode = 3;
 	ShowHideScreen();
 }
 
-void CTestDlg::OnButton4x4() 
+void CCarParkDlg::OnButton4x4() 
 {
 	m_nViewMode = 4;
 	ShowHideScreen();
 }
 
-void CTestDlg::OnButton6x6() 
+void CCarParkDlg::OnButton6x6() 
 {
 	m_nViewMode = 6;
 	ShowHideScreen();
 }
 
-CString CTestDlg::GetBaseDir(const CString &path)
+CString CCarParkDlg::GetBaseDir(const CString &path)
 {
 	CString out = "";
 
@@ -891,7 +905,7 @@ CString CTestDlg::GetBaseDir(const CString &path)
 	return out;
 }
 
-void CTestDlg::OnBnClickedButton36()
+void CCarParkDlg::OnBnClickedButtonSave()
 {
 	// TODO: 在此添加控件通知处理程序代码
 	int nBaseNum[4];
@@ -912,17 +926,23 @@ void CTestDlg::OnBnClickedButton36()
 	}
 }
 
-void CTestDlg::OnBnClickedButton37()
+void CCarParkDlg::OnBnClickedButtonOpenView()
 {
 	// TODO: 在此添加控件通知处理程序代码
+	if (!m_bDeviceInit)
+	{
+		return;
+	}
+
 	RECT m_rect;
 	CString str;
 	m_btnYL.GetWindowText(str);
+
 	if (str == _T("开启预览"))
 	{
 		for( int i = 0; i < g_TotalChannel; i++)
 		{
-			if(g_hDSP[i]!= (HANDLE) 0xffffffff)
+			if(g_hDSP[i] != (HANDLE) 0xffffffff)
 			{
 				m_pVideoView[i]->GetClientRect(&m_rect);
 
@@ -934,7 +954,7 @@ void CTestDlg::OnBnClickedButton37()
 	{
 		for( int i = 0; i < g_TotalChannel; i++)
 		{
-			if(g_hDSP[i]!= (HANDLE) 0xffffffff)
+			if(g_hDSP[i] != (HANDLE) 0xffffffff)
 			{
 				m_pVideoView[i]->GetClientRect(&m_rect);
 
@@ -945,16 +965,16 @@ void CTestDlg::OnBnClickedButton37()
 	}
 }
 
-void CTestDlg::OnSize(UINT nType, int cx, int cy)
+void CCarParkDlg::OnSize(UINT nType, int cx, int cy)
 {
-	CDialog::OnSize(nType, cx, cy);
+	CDialogEx::OnSize(nType, cx, cy);
 
 	// TODO: 在此处添加消息处理程序代码
 	if (m_pVideoView[0])
 		InitRect();
 }
 
-void CTestDlg::InitRect()
+void CCarParkDlg::InitRect()
 {
 	m_Current = 0;
 	m_bOne = FALSE;
@@ -1018,7 +1038,7 @@ void CTestDlg::InitRect()
 }
 
 
-BOOL CTestDlg::PreTranslateMessage(MSG* pMsg)
+BOOL CCarParkDlg::PreTranslateMessage(MSG* pMsg)
 {
 	// TODO: 在此添加专用代码和/或调用基类
 	if(pMsg->message >= WM_KEYFIRST && pMsg->wParam <= WM_KEYLAST) 
@@ -1028,5 +1048,67 @@ BOOL CTestDlg::PreTranslateMessage(MSG* pMsg)
 			return TRUE;
 		}
 	} 
-	return CDialog::PreTranslateMessage(pMsg);
+	return CDialogEx::PreTranslateMessage(pMsg);
 }
+
+
+BOOL CCarParkDlg::DestroyWindow()
+{
+	// TODO: 在此添加专用代码和/或调用基类
+	g_bAppRun = false;
+	
+	for( int i = 0;i<g_TotalChannel;i++)
+	{
+		if(g_hDSP[i]!= (HANDLE) 0xffffffff)
+		{
+			StopVideoCapture(g_hDSP[i]);
+		}
+	}
+	for(int i = 0; i<g_TotalChannel; i++)
+	{
+		if(g_hDSP[i]!= (HANDLE) 0xffffffff)
+		{
+			StopDsp(g_hDSP[i]);
+		}
+	}
+	Sleep(1);
+	for(int i = 0; i<g_TotalChannel; i++)
+	{
+		if(g_hDSP[i]!= (HANDLE) 0xffffffff)
+		{
+			ChannelClose(g_hDSP[i]);
+		}
+	}
+
+	if (g_pPort1)
+	{
+		g_pPort1->StopMonitoring();
+		delete g_pPort1;
+	}
+
+	if (g_pPort2)
+	{
+		g_pPort2->StopMonitoring();
+		delete g_pPort2;
+	}
+
+	if (m_pServer)
+	{
+		m_pServer->CloseSocket();
+		Sleep(1000);
+		delete m_pServer;
+		m_pServer = NULL;
+	}
+
+	if (m_pClient)
+	{
+		m_pClient->CloseSocket();
+		Sleep(1000);
+		delete m_pClient;
+		m_pClient = NULL;
+	}
+
+	DeInitDSPs();
+	return CDialogEx::DestroyWindow();
+}
+

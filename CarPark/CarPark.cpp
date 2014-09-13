@@ -1,0 +1,171 @@
+
+// CarPark.cpp : 定义应用程序的类行为。
+//
+
+#include "stdafx.h"
+#include "CarPark.h"
+#include "CarParkDlg.h"
+
+#ifdef _DEBUG
+#define new DEBUG_NEW
+#endif
+
+
+// CCarParkApp
+
+BEGIN_MESSAGE_MAP(CCarParkApp, CWinApp)
+	ON_COMMAND(ID_HELP, &CWinApp::OnHelp)
+END_MESSAGE_MAP()
+
+
+
+
+// CCarParkApp 构造
+
+CCarParkApp::CCarParkApp()
+{
+	// 支持重新启动管理器
+	m_dwRestartManagerSupportFlags = AFX_RESTART_MANAGER_SUPPORT_RESTART;
+
+	// TODO: 在此处添加构造代码，
+	// 将所有重要的初始化放置在 InitInstance 中
+}
+
+
+// 唯一的一个 CCarParkApp 对象
+
+CCarParkApp theApp;
+
+
+// CCarParkApp 初始化
+
+BOOL CCarParkApp::InitInstance()
+{
+	// 如果一个运行在 Windows XP 上的应用程序清单指定要
+	// 使用 ComCtl32.dll 版本 6 或更高版本来启用可视化方式，
+	//则需要 InitCommonControlsEx()。否则，将无法创建窗口。
+	INITCOMMONCONTROLSEX InitCtrls;
+	InitCtrls.dwSize = sizeof(InitCtrls);
+	// 将它设置为包括所有要在应用程序中使用的
+	// 公共控件类。
+	InitCtrls.dwICC = ICC_WIN95_CLASSES;
+	InitCommonControlsEx(&InitCtrls);
+
+	CWinApp::InitInstance();
+
+
+	AfxEnableControlContainer();
+
+	// 创建 shell 管理器，以防对话框包含
+	// 任何 shell 树视图控件或 shell 列表视图控件。
+	CShellManager *pShellManager = new CShellManager;
+
+	// 标准初始化
+	// 如果未使用这些功能并希望减小
+	// 最终可执行文件的大小，则应移除下列
+	// 不需要的特定初始化例程
+	// 更改用于存储设置的注册表项
+	// TODO: 应适当修改该字符串，
+	// 例如修改为公司或组织名
+	SetRegistryKey(_T("应用程序向导生成的本地应用程序"));
+
+	if(g_DB.Open(
+		"Provider=Microsoft.Jet.OLEDB.4.0;\
+		Data Source=Data\\sdk3V.mdb;\
+		Persist Security Info=False;\
+		Jet OLEDB:Database Password=630022474"
+		))
+	{
+		AfxMessageBox("打开数据库失败！");
+		return FALSE;
+	}
+
+	g_nNetType = GetIniInt(_T("NetData"), _T("NetType"), NETTYPE_CLIENT);
+	g_sDeviceID = GetIniString(_T("Device"), _T("DeviceID"), _T("0"));
+
+	// 初始化socket dll
+	WSADATA wsaData;
+	WORD socketVersion = MAKEWORD(2, 2);
+	if (::WSAStartup(socketVersion, &wsaData) != 0)
+	{
+		AfxMessageBox("Init socket dll error\n");
+		return FALSE;
+	}
+
+	g_bAppRun = true;
+
+	CCarParkDlg dlg;
+	m_pMainWnd = &dlg;
+	INT_PTR nResponse = dlg.DoModal();
+	if (nResponse == IDOK)
+	{
+		// TODO: 在此放置处理何时用
+		//  “确定”来关闭对话框的代码
+	}
+	else if (nResponse == IDCANCEL)
+	{
+		// TODO: 在此放置处理何时用
+		//  “取消”来关闭对话框的代码
+	}
+
+	// 删除上面创建的 shell 管理器。
+	if (pShellManager != NULL)
+	{
+		delete pShellManager;
+	}
+
+	// 由于对话框已关闭，所以将返回 FALSE 以便退出应用程序，
+	//  而不是启动应用程序的消息泵。
+	return FALSE;
+}
+
+
+int CCarParkApp::ExitInstance()
+{
+	// TODO: 在此添加专用代码和/或调用基类
+	CString str;
+	str.Format(_T("%d"), g_nNetType);
+	g_nNetType = WriteIniString(_T("NetData"), _T("NetType"), str);
+
+	// 释放winsock库
+	::WSACleanup();
+	return CWinApp::ExitInstance();
+}
+
+CString CCarParkApp::GetIniString(LPCTSTR lpAppName, LPCTSTR   lpKeyName,  LPCTSTR  lpDefault)
+{
+	try
+	{
+		CString str;
+		DWORD DW=GetPrivateProfileString(lpAppName,lpKeyName,lpDefault,str.GetBuffer(MAX_PATH),MAX_PATH,SYSSETPATHNAME);
+		return str;
+	}
+	catch(_com_error e)
+	{
+		AfxMessageBox(e.ErrorMessage());
+	}
+}
+
+UINT CCarParkApp::WriteIniString(LPCTSTR lpAppName, LPCTSTR lpKeyName, LPCTSTR lpString)
+{
+	try
+	{
+		return WritePrivateProfileString(lpAppName, lpKeyName, lpString,  SYSSETPATHNAME);  
+	}
+	catch(_com_error e)
+	{
+		AfxMessageBox(e.ErrorMessage());
+	}
+}
+
+UINT CCarParkApp::GetIniInt(LPCTSTR lpAppName, LPCTSTR   lpKeyName,  INT   nDefault)
+{
+	try
+	{
+		return GetPrivateProfileInt(lpAppName,lpKeyName,nDefault, SYSSETPATHNAME);  
+	}
+	catch(_com_error e)
+	{
+		AfxMessageBox(e.ErrorMessage());
+	}
+}

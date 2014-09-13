@@ -942,8 +942,8 @@ BOOL CSerialPort::Close()
 		SetEvent(m_hEventCloseThread);
 	} while (m_bThreadAlive);
 
-	::CloseHandle(m_hEventCloseThread);
-	m_hEventCloseThread = NULL;
+	//::CloseHandle(m_hEventCloseThread);
+	//m_hEventCloseThread = NULL;
 	if (m_hFile == NULL)	return TRUE;
 	::CloseHandle(m_hFile);
 	m_hFile = NULL;
@@ -975,7 +975,7 @@ UINT CSerialPort::CommThread(LPVOID pParam)
 	if (port->m_hFile)		// check if the port is opened
 		PurgeComm(port->m_hFile, PURGE_RXCLEAR | PURGE_TXCLEAR | PURGE_RXABORT | PURGE_TXABORT);
 	BOOL bError=0;
-	while(TRUE)
+	while(port->m_bThreadAlive)
 	{
 		bResult = WaitCommEvent(port->m_hFile, &Event, &olRead);
 		if(!bResult)
@@ -994,16 +994,18 @@ UINT CSerialPort::CommThread(LPVOID pParam)
 		{
 		case 0:
 			port->m_bThreadAlive = FALSE;
-
-			::ZeroMemory(&comstat, sizeof(COMSTAT));
-			CloseHandle(olRead.hEvent);
-			CloseHandle(hEventArray[0]);
-			CloseHandle(hEventArray[1]);
+			
+			//::ZeroMemory(&comstat, sizeof(COMSTAT));
+			//CloseHandle(hEventArray[0]);
+			//CloseHandle(hEventArray[1]);
 
 			break;
 		case 1:	//¶ÁÊý¾Ý
 			GetCommMask(port->m_hFile, &CommEvent);				
 			if (CommEvent & EV_RXCHAR)	port->ReadData(&olRead);
+
+			//CloseHandle(olRead.hEvent);
+
 			break;
 		default:
 			bError=1;
@@ -1012,10 +1014,8 @@ UINT CSerialPort::CommThread(LPVOID pParam)
 
 		if(bError)	break;
 	}
-	port->m_bThreadAlive = FALSE;
 
 	::ZeroMemory(&comstat, sizeof(COMSTAT));
-	CloseHandle(olRead.hEvent);
 	CloseHandle(hEventArray[0]);
 	CloseHandle(hEventArray[1]);
 
@@ -1039,7 +1039,7 @@ BOOL CSerialPort::StartMonitoring()
 		0,
 		&ThreadID);
 
-	return TRUE;	
+	return TRUE;
 }
 
 
@@ -1050,7 +1050,7 @@ BOOL CSerialPort::StopMonitoring()
 {
 	//LOG4CPLUS_INFO(root, _T("Thread suspended"));
 
-	m_bThreadAlive=FALSE;
+	m_bThreadAlive = FALSE;
 
 	return TRUE;	
 }

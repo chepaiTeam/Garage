@@ -22,6 +22,18 @@
     <None Include="res\CarPark.ico">
       <Filter>资源文件</Filter>
     </None>
+    <None Include="res\LightGreen.png">
+      <Filter>资源文件</Filter>
+    </None>
+    <None Include="res\LightRed.png">
+      <Filter>资源文件</Filter>
+    </None>
+    <None Include="res\LightNone.png">
+      <Filter>资源文件</Filter>
+    </None>
+    <None Include="res\LightRG.png">
+      <Filter>资源文件</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="CarPark.h">
@@ -60,6 +72,18 @@
     <ClInclude Include="CSDef.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="LightBtn.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="StaticEx.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CamSetDlg.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CustomEditCtrl.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="CarPark.cpp">
@@ -87,6 +111,18 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="CvvImage.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="LightBtn.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="StaticEx.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CamSetDlg.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CustomEditCtrl.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

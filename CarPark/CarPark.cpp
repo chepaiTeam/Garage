@@ -18,8 +18,6 @@ BEGIN_MESSAGE_MAP(CCarParkApp, CWinApp)
 END_MESSAGE_MAP()
 
 
-
-
 // CCarParkApp 构造
 
 CCarParkApp::CCarParkApp()
@@ -81,7 +79,6 @@ BOOL CCarParkApp::InitInstance()
 	}
 
 	g_nNetType = GetIniInt(_T("NetData"), _T("NetType"), NETTYPE_CLIENT);
-	g_sDeviceID = GetIniString(_T("Device"), _T("DeviceID"), _T("0"));
 
 	// 初始化socket dll
 	WSADATA wsaData;
@@ -91,6 +88,9 @@ BOOL CCarParkApp::InitInstance()
 		AfxMessageBox("Init socket dll error\n");
 		return FALSE;
 	}
+
+	GdiplusStartupInput input;  
+	GdiplusStartup(&m_gdiplusToken, &input, NULL); 
 
 	g_bAppRun = true;
 
@@ -129,6 +129,8 @@ int CCarParkApp::ExitInstance()
 
 	// 释放winsock库
 	::WSACleanup();
+
+	GdiplusShutdown(m_gdiplusToken);
 	return CWinApp::ExitInstance();
 }
 

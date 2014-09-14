@@ -20,6 +20,24 @@ typedef struct
 	int nComNum;					//串口位置
 } LED_INFO, *pLED_INFO;
 
+
+typedef struct
+{
+	CString sGroupID;
+	CString sLedAddress;
+	int nEffective;
+	int nRedLightNum;
+	int nGreenLightNum;
+	int nRGLightNum;
+	int nNoneLightNum;
+} GROUP_INFO, *pGROUP_INFO;
+
+typedef struct
+{
+	CString sIP;
+	CArray<GROUP_INFO*> aGroupInfos;
+} DEVICE_INFO, *pDEVICE_INFO;
+
 class CServer
 {
 public:
@@ -31,7 +49,7 @@ public:
 	/// <summary> 
 	/// 加载数据库中LED设备数据信息
 	/// </summary> 
-	void LoadLedData();
+	void LoadData();
 
 	// 关闭socket库
 	bool CloseSocket();

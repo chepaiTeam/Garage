@@ -1,6 +1,6 @@
 #pragma once
-#import "C:\Program Files\Common Files\System\ado\msado15.dll"  rename("EOF","adoEOF"), rename("BOF","adoBOF")  
-//#import "D:\Toolkits\ado-XP\msado15.dll"  rename("EOF","adoEOF"), rename("BOF","adoBOF")         
+//#import "C:\Program Files\Common Files\System\ado\msado15.dll"  rename("EOF","adoEOF"), rename("BOF","adoBOF")  
+#import "\\192.168.10.5\Toolkits\ado-XP\msado15.dll"  rename("EOF","adoEOF"), rename("BOF","adoBOF")         
 using   namespace   ADODB;
 
 class CDataBase

@@ -1,88 +1,74 @@
-========================================================================
-       MICROSOFT FOUNDATION CLASS LIBRARY : Test
-========================================================================
+================================================================================
+MICROSOFT 基础类库: CarPark 项目概述
+===============================================================================
 
+应用程序向导已为您创建了这个 CarPark 应用程序。此应用程序不仅演示 Microsoft 基础类的基本使用方法，还可作为您编写应用程序的起点。
 
-AppWizard has created this Test application for you.  This application
-not only demonstrates the basics of using the Microsoft Foundation classes
-but is also a starting point for writing your application.
+本文件概要介绍组成 CarPark 应用程序的每个文件的内容。
 
-This file contains a summary of what you will find in each of the files that
-make up your Test application.
+CarPark.vcxproj
+这是使用应用程序向导生成的 VC++ 项目的主项目文件。 
+它包含生成该文件的 Visual C++ 的版本信息，以及有关使用应用程序向导选择的平台、配置和项目功能的信息。
 
-Test.dsp
-    This file (the project file) contains information at the project level and
-    is used to build a single project or subproject. Other users can share the
-    project (.dsp) file, but they should export the makefiles locally.
+CarPark.vcxproj.filters
+    这是使用“应用程序向导”生成的 VC++ 项目筛选器文件。
+    它包含有关项目文件与筛选器之间的关联信息。在 IDE 中，通过这种关联，在特定节点下以分组形式显示具有相似扩展名的文件。例如，“.cpp”文件与“源文件”筛选器关联。
 
-Test.h
-    This is the main header file for the application.  It includes other
-    project specific headers (including Resource.h) and declares the
-    CTestApp application class.
+CarPark.h
+这是应用程序的主要头文件。它包括其他项目特定的头文件(包括 Resource.h)，并声明 CCarParkApp 应用程序类。
 
-Test.cpp
-    This is the main application source file that contains the application
-    class CTestApp.
+CarPark.cpp
+这是包含应用程序类 CCarParkApp 的主要应用程序源文件。
 
-Test.rc
-    This is a listing of all of the Microsoft Windows resources that the
-    program uses.  It includes the icons, bitmaps, and cursors that are stored
-    in the RES subdirectory.  This file can be directly edited in Microsoft
-	Visual C++.
+CarPark.rc
+这是程序使用的所有 Microsoft Windows 资源的列表。它包括 RES 子目录中存储的图标、位图和光标。此文件可以直接在 Microsoft Visual C++ 中进行编辑。项目资源位于 2052 中。
 
-Test.clw
-    This file contains information used by ClassWizard to edit existing
-    classes or add new classes.  ClassWizard also uses this file to store
-    information needed to create and edit message maps and dialog data
-    maps and to create prototype member functions.
+res\CarPark.ico
+这是用作应用程序图标的图标文件。此图标包括在主要资源文件 CarPark.rc 中。
 
-res\Test.ico
-    This is an icon file, which is used as the application's icon.  This
-    icon is included by the main resource file Test.rc.
-
-res\Test.rc2
-    This file contains resources that are not edited by Microsoft 
-	Visual C++.  You should place all resources not editable by
-	the resource editor in this file.
-
-
+res\CarPark.rc2
+此文件包含不在 Microsoft Visual C++ 中进行编辑的资源。您应该将不可由资源编辑器编辑的所有资源放在此文件中。
 
 
 /////////////////////////////////////////////////////////////////////////////
 
-AppWizard creates one dialog class:
+应用程序向导创建一个对话框类:
 
-TestDlg.h, TestDlg.cpp - the dialog
-    These files contain your CTestDlg class.  This class defines
-    the behavior of your application's main dialog.  The dialog's
-    template is in Test.rc, which can be edited in Microsoft
-	Visual C++.
+CarParkDlg.h，CarParkDlg.cpp - 对话框
+这些文件包含 CCarParkDlg 类。该类定义应用程序主对话框的行为。该对话框的模板位于 CarPark.rc 中，该文件可以在 Microsoft Visual C++ 中进行编辑。
 
 
 /////////////////////////////////////////////////////////////////////////////
-Other standard files:
 
-StdAfx.h, StdAfx.cpp
-    These files are used to build a precompiled header (PCH) file
-    named Test.pch and a precompiled types file named StdAfx.obj.
+其他功能:
+
+ActiveX 控件
+应用程序包括对使用 ActiveX 控件的支持。
+
+/////////////////////////////////////////////////////////////////////////////
+
+其他标准文件:
+
+StdAfx.h，StdAfx.cpp
+这些文件用于生成名为 CarPark.pch 的预编译头 (PCH) 文件和名为 StdAfx.obj 的预编译类型文件。
 
 Resource.h
-    This is the standard header file, which defines new resource IDs.
-    Microsoft Visual C++ reads and updates this file.
+这是标准头文件，它定义新的资源 ID。
+Microsoft Visual C++ 读取并更新此文件。
 
+CarPark.manifest
+	应用程序清单文件供 Windows XP 用来描述应用程序
+	对特定版本并行程序集的依赖性。加载程序使用此
+	信息从程序集缓存加载适当的程序集或
+	从应用程序加载私有信息。应用程序清单可能为了重新分发而作为
+	与应用程序可执行文件安装在相同文件夹中的外部 .manifest 文件包括，
+	也可能以资源的形式包括在该可执行文件中。 
 /////////////////////////////////////////////////////////////////////////////
-Other notes:
 
-AppWizard uses "TODO:" to indicate parts of the source code you
-should add to or customize.
+其他注释:
 
-If your application uses MFC in a shared DLL, and your application is 
-in a language other than the operating system's current language, you
-will need to copy the corresponding localized resources MFC42XXX.DLL
-from the Microsoft Visual C++ CD-ROM onto the system or system32 directory,
-and rename it to be MFCLOC.DLL.  ("XXX" stands for the language abbreviation.
-For example, MFC42DEU.DLL contains resources translated to German.)  If you
-don't do this, some of the UI elements of your application will remain in the
-language of the operating system.
+应用程序向导使用“TODO:”指示应添加或自定义的源代码部分。
+
+如果应用程序在共享的 DLL 中使用 MFC，则需要重新发布这些 MFC DLL；如果应用程序所用的语言与操作系统的当前区域设置不同，则还需要重新发布对应的本地化资源 MFC100XXX.DLL。有关这两个主题的更多信息，请参见 MSDN 文档中有关 Redistributing Visual C++ applications (重新发布 Visual C++ 应用程序)的章节。
 
 /////////////////////////////////////////////////////////////////////////////

@@ -32,14 +32,15 @@ public:
 	};
 
 	// 由客户端传送给服务器的当前设备信息
-	struct TMSG_DEVICEINFO : public TMSG_HEADER
+	struct TMSG_GROUPINFO : public TMSG_HEADER
 	{
-		char szDeviceName[256];		// 设备名
+		char szGroupID[256];		// 组ID
+		int nNoneLightNum;			// 未使用灯数
 		int nRedLightNum;			// 红灯数
 		int nGreenLightNum;			// 绿灯数
-		int nNoneLightNum;			// 未使用灯数
+		int nRGLightNum;			// 红绿灯数
 
-		TMSG_DEVICEINFO()
+		TMSG_GROUPINFO()
 			: TMSG_HEADER(MSG_DEVICEINFO)
 		{
 		}

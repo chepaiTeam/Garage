@@ -70,9 +70,12 @@ void CClient::StartClientThread(LPVOID pParam)
 	{
 		TRACE("Connect to Server Error!\n");
 
-		::closesocket(g_sTCPClient);
-		//再次启动客服端线程
-		::CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)StartClientThread, NULL, 0, NULL);
+		if (g_bAppRun)
+		{
+			::closesocket(g_sTCPClient);
+			//再次启动客服端线程
+			::CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)StartClientThread, NULL, 0, NULL);
+		}
 		return;
 	}
 
@@ -86,53 +89,79 @@ void CClient::StartClientThread(LPVOID pParam)
 void CClient::CTCPSendThread(LPVOID pParam)
 {
 	// 把设备信息发到server端
-	CCSDef::TMSG_DEVICEINFO tMsgDeviceInfo;
-	strcpy(tMsgDeviceInfo.szDeviceName, g_sDeviceID);
-	tMsgDeviceInfo.nRedLightNum = -1;
-	tMsgDeviceInfo.nGreenLightNum = -1;
-	tMsgDeviceInfo.nNoneLightNum = -1;
+	int nGroupCount = g_CamGroupID.GetCount();
+	CArray<CCSDef::TMSG_GROUPINFO> tMsgGroupInfos;
+	tMsgGroupInfos.SetSize(nGroupCount);
+	int i, j;
+	for (int i = 0; i < nGroupCount; i++)
+	{
+		tMsgGroupInfos[i].nRedLightNum = -1;
+		tMsgGroupInfos[i].nGreenLightNum = -1;
+		tMsgGroupInfos[i].nNoneLightNum = -1;
+		strcpy(tMsgGroupInfos[i].szGroupID, g_CamGroupID.GetAt(i));
+	}
+	int nRedNum = 0, nGreenNum = 0, nNoneNum = 0, nRGNum = 0;
+	CString sTemGroup;
 
-	int i;
+	int nTimer = 0;
 	while(g_bAppRun)
 	{
-		Sleep(100);
-		int nRedNum = 0, nGreenNum = 0, nNoneNum = 0;
-
-		//统计灯数量
-		for (i = 0; i < g_pCamInfos.GetCount(); i++)
+		Sleep(200);
+		nTimer ++;
+		for (i = 0; i < nGroupCount; i++)
 		{
-			switch (g_pCamInfos.GetAt(i)->nLightColor)
+			nNoneNum = 0;
+			nRedNum = 0;
+			nGreenNum = 0;
+			nRGNum = 0;
+			sTemGroup = tMsgGroupInfos[i].szGroupID;
+			//统计灯数量
+			for (j = 0; j < g_pCamInfos.GetCount(); j++)
 			{
-			case 0:
-				nNoneNum++;
-				break;
-			case 1:
-				nRedNum++;
-				break;
-			case 2:
-				nGreenNum++;
-				break;
+				if (sTemGroup == g_pCamInfos.GetAt(j)->sGroupID)
+				{
+					switch (g_pCamInfos.GetAt(j)->nLightType) 
+					{
+					case LIGHT_TYPE_NONE:
+						nNoneNum++;
+						break;
+					case LIGHT_TYPE_RED:
+						nRedNum++;
+						break;
+					case LIGHT_TYPE_GREEN:
+						nGreenNum++;
+						break;
+					case LIGHT_TYPE_RG:
+						nRGNum++;
+						break;
+					}
+				}
 			}
-		}
 
-		if (tMsgDeviceInfo.nNoneLightNum == nNoneNum
-			&& tMsgDeviceInfo.nGreenLightNum == nGreenNum
-			&& tMsgDeviceInfo.nRedLightNum == nRedNum)
-		{
-			//continue;
-		}
-		tMsgDeviceInfo.nNoneLightNum = nNoneNum;
-		tMsgDeviceInfo.nGreenLightNum = nGreenNum;
-		tMsgDeviceInfo.nRedLightNum = nRedNum;
+			if (tMsgGroupInfos[i].nNoneLightNum == nNoneNum
+				&& tMsgGroupInfos[i].nGreenLightNum == nGreenNum
+				&& tMsgGroupInfos[i].nRedLightNum == nRedNum
+				&& nTimer % 200 != 0)
+			{
+				//continue;
+			}
 
-		if (SOCKET_ERROR == ::send(g_sTCPClient, (char*)(&tMsgDeviceInfo), sizeof(CCSDef::TMSG_DEVICEINFO), 0))
-		{
-			TRACE("Send Data Error!\n");
+			tMsgGroupInfos[i].nNoneLightNum = nNoneNum;
+			tMsgGroupInfos[i].nGreenLightNum = nGreenNum;
+			tMsgGroupInfos[i].nRedLightNum = nRedNum;
+			tMsgGroupInfos[i].nRGLightNum = nRGNum;
 
-			::closesocket(g_sTCPClient);
-			//再次启动客服端线程
-			::CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)StartClientThread, NULL, 0, NULL);
-			return;
+			if (SOCKET_ERROR == ::send(g_sTCPClient, (char*)(&tMsgGroupInfos[i]), sizeof(CCSDef::TMSG_GROUPINFO), 0))
+			{
+				TRACE("Send Data Error!\n");
+				if (g_bAppRun)
+				{
+					::closesocket(g_sTCPClient);
+					//再次启动客服端线程
+					::CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)StartClientThread, NULL, 0, NULL);
+				}
+				return;
+			}
 		}
 	}
 }
@@ -148,7 +177,7 @@ void CClient::CTCPRecvThread(LPVOID pParam)
 		int nRecv = ::recv(g_sTCPClient, g_szBuff, MAX_PACKET_SIZE + 1, 0);
 		if (nRecv == 0 || nRecv == SOCKET_ERROR)
 		{
-			TRACE("服务器关闭");
+			TRACE("服务器关闭\n");
 			break;
 		}
 

@@ -4,6 +4,8 @@
 static SOCKET g_sCastSend;
 static SOCKET g_sTCPServer;
 static CArray<LED_INFO *, LED_INFO *&> g_LedInfos;	//Led信息结构体
+//static CArray<GROUP_INFO *, GROUP_INFO *&> g_GroupInfos;	//组信息结构体
+static CArray<DEVICE_INFO *, DEVICE_INFO *&> g_DeviceInfos;	//设备信息结构体
 
 CServer::CServer(void)
 {
@@ -17,10 +19,15 @@ CServer::~CServer(void)
 	}
 	g_LedInfos.RemoveAll();
 
+	//for (int i =0; i < g_GroupInfos.GetCount(); i++)
+	//{
+	//	delete g_GroupInfos.GetAt(i);
+	//}
+	//g_GroupInfos.RemoveAll();
 	//CloseSocket();
 }
 
-void CServer::LoadLedData()
+void CServer::LoadData()
 {
 	_RecordsetPtr rs = g_DB.GetRecordset(_T("SELECT * FROM LEDInfo"));
 	while(!rs->adoEOF)
@@ -62,6 +69,52 @@ void CServer::LoadLedData()
 		rs->MoveNext();
 	}
 	rs->Close();
+
+	//rs = g_DB.GetRecordset(_T("SELECT * FROM GroupInfo"));
+	//while(!rs->adoEOF)
+	//{
+	//	GROUP_INFO *pGroupInfo = new GROUP_INFO;
+	//	CString sTemp;
+	//	if (rs->GetCollect(_T("GroupID")).vt != VT_NULL)
+	//	{
+	//		pGroupInfo->sGroupID = (LPCSTR)(_bstr_t)rs->GetCollect(_T("GroupID"));
+	//	}
+
+	//	if (rs->GetCollect(_T("LedAddress")).vt != VT_NULL)
+	//	{
+	//		pGroupInfo->sLedAddress = (LPCSTR)(_bstr_t)rs->GetCollect(_T("LedAddress"));
+	//	}
+
+	//	if (rs->GetCollect(_T("Effective")).vt != VT_NULL)
+	//	{
+	//		pGroupInfo->nEffective = _ttoi((LPCSTR)(_bstr_t)rs->GetCollect(_T("Effective")));
+	//	}
+
+	//	if (rs->GetCollect(_T("RedLightNum")).vt != VT_NULL)
+	//	{
+	//		pGroupInfo->nRedLightNum = _ttoi((LPCSTR)(_bstr_t)rs->GetCollect(_T("RedLightNum")));
+
+	//	}
+
+	//	if (rs->GetCollect(_T("GreenLightNum")).vt != VT_NULL)
+	//	{
+	//		pGroupInfo->nGreenLightNum = _ttoi((LPCSTR)(_bstr_t)rs->GetCollect(_T("GreenLightNum")));
+	//	}
+
+	//	if (rs->GetCollect(_T("RGLightNum")).vt != VT_NULL)
+	//	{
+	//		pGroupInfo->nRGLightNum = _ttoi((LPCSTR)(_bstr_t)rs->GetCollect(_T("RGLightNum")));
+	//	}
+
+	//	if (rs->GetCollect(_T("NoneLightNum")).vt != VT_NULL)
+	//	{
+	//		pGroupInfo->nNoneLightNum = _ttoi((LPCSTR)(_bstr_t)rs->GetCollect(_T("NoneLightNum")));
+	//	}
+
+	//	g_GroupInfos.Add(pGroupInfo);
+	//	rs->MoveNext();
+	//}
+	//rs->Close();
 }
 
 
@@ -100,7 +153,7 @@ bool CServer::InitServer()
 	setsockopt(g_sCastSend, SOL_SOCKET, SO_BROADCAST, (char*)&optval, sizeof(bool));
 
 	//加载LED数据
-	LoadLedData();
+	LoadData();
 
 	//启动广播线程
 	::CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)BroadcastThread, this, 0, NULL);
@@ -127,13 +180,13 @@ void CServer::BroadcastThread(LPVOID pParam)
 			pLedInfo = g_LedInfos.GetAt(i);
 
 			nRedNum = 0;
-			sSql.Format(_T("SELECT RedLightNum FROM ClientInfo WHERE ClientInfo.LedAddress = '%s'"), pLedInfo->sAddress);
+			sSql.Format(_T("SELECT SUM(RedLightNum) AS RedLightNum1 FROM GroupInfo WHERE LedAddress = '%s'"), pLedInfo->sAddress);
 			_RecordsetPtr rs = g_DB.GetRecordset((_bstr_t)sSql);
 			while(!rs->adoEOF)
 			{
-				if (rs->GetCollect(_T("RedLightNum")).vt != VT_NULL)
+				if (rs->GetCollect(_T("RedLightNum1")).vt != VT_NULL)
 				{
-					nTem = _ttoi((LPCSTR)(_bstr_t)rs->GetCollect(_T("RedLightNum")));
+					nTem = _ttoi((LPCSTR)(_bstr_t)rs->GetCollect(_T("RedLightNum1")));
 					if (nTem > 0)
 					{
 						nRedNum += nTem;
@@ -161,7 +214,7 @@ void CServer::BroadcastThread(LPVOID pParam)
 		dstAdd.sin_family = AF_INET; 
 		dstAdd.sin_port = htons(CAST_PORT);
 		dstAdd.sin_addr.s_addr = INADDR_BROADCAST;
-		if(SOCKET_ERROR == ::sendto(g_sCastSend, (char*)(&tMsgLedInfo), sizeof(CCSDef::TMSG_DEVICEINFO), 0, (SOCKADDR*)&dstAdd, sizeof(SOCKADDR)))
+		if(SOCKET_ERROR == ::sendto(g_sCastSend, (char*)(&tMsgLedInfo), sizeof(CCSDef::TMSG_GROUPINFO), 0, (SOCKADDR*)&dstAdd, sizeof(SOCKADDR)))
 		{
 			TRACE("Send Data Error!\n");
 			return;
@@ -173,6 +226,12 @@ void CServer::BroadcastThread(LPVOID pParam)
 ///////////////////////////////////////////////////////////////////
 //////////////TCP   服务端
 ///////////////////////////////////////////////////////////////////
+struct clientdata
+{
+	sockaddr_in ClientAddr;
+	SOCKET sClient;
+};
+
 void CServer::StartServerThread(LPVOID pParam)
 {
 	// 创建TCP socket套接字
@@ -200,38 +259,36 @@ void CServer::StartServerThread(LPVOID pParam)
 		return;
 	}
 
-	SOCKET sClient;
-
 	while(g_bAppRun)
 	{
-		sockaddr_in ClientAddr;
 		int nAddrLen = sizeof(sockaddr_in);
 
-		sClient = ::accept(g_sTCPServer, (sockaddr*)&ClientAddr, &nAddrLen);
-		if ( sClient == INVALID_SOCKET )
+		clientdata *pcdata = new clientdata;
+		pcdata->sClient = ::accept(g_sTCPServer, (sockaddr*)&pcdata->ClientAddr, &nAddrLen);
+		if ( pcdata->sClient == INVALID_SOCKET )
 		{
 			break;
 		}
 
 		//启动服务器接收线程
-		::CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)STCPRecvThread, (LPVOID)sClient, 0, NULL);
+		::CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)STCPRecvThread, (LPVOID)pcdata, 0, NULL);
 	}
-	::closesocket(sClient);
 }
 
 void CServer::STCPRecvThread(LPVOID pParam)
 {
-	SOCKET sClient = (SOCKET)pParam;
-
+	clientdata *pcdata = (clientdata *)pParam;
 	// 循环接收client端的连接请求
-	long g_lLength;
-	char g_szFileName[MAXFILEDIRLENGTH];
 	char g_szBuff[MAX_PACKET_SIZE + 1];
+	int nRedLightNum;
+	int nGreenLightNum;
+	int nRGLightNum;
+	int nNoneLightNum;
 
 	while(g_bAppRun)
 	{
 		memset(g_szBuff, 0, sizeof(g_szBuff));
-		int nRecv = ::recv(sClient, g_szBuff, MAX_PACKET_SIZE + 1, 0);
+		int nRecv = ::recv(pcdata->sClient, g_szBuff, MAX_PACKET_SIZE + 1, 0);
 		if (nRecv == 0 || nRecv == SOCKET_ERROR)
 		{
 			TCHAR("客服端关闭");
@@ -255,14 +312,81 @@ void CServer::STCPRecvThread(LPVOID pParam)
 			break;
 		case MSG_DEVICEINFO:
 			{
-				CCSDef::TMSG_DEVICEINFO* pDeviceInfoMsg = (CCSDef::TMSG_DEVICEINFO*)pMsgHeader;
+				CCSDef::TMSG_GROUPINFO* pGroupInfoMsg = (CCSDef::TMSG_GROUPINFO*)pMsgHeader;
+
+				//添加或修改设备信息
+				DEVICE_INFO *DeviceInfo = NULL;
+				BOOL bFlag = FALSE;
+				for (int i = 0; i < g_DeviceInfos.GetCount(); i++)
+				{
+					if(g_DeviceInfos.GetAt(i)->sIP == inet_ntoa(pcdata->ClientAddr.sin_addr))
+					{
+						DeviceInfo = g_DeviceInfos.GetAt(i);
+						bFlag = TRUE;
+					}
+				}
+				if (!bFlag)
+				{
+					DeviceInfo = new DEVICE_INFO;
+					DeviceInfo->sIP = inet_ntoa(pcdata->ClientAddr.sin_addr);
+					g_DeviceInfos.Add(DeviceInfo);
+				}
+
+				//添加或修改组信息
+				GROUP_INFO *GroupInfo = NULL;
+				bFlag = FALSE;
+				for (int i = 0; i < DeviceInfo->aGroupInfos.GetCount(); i++)
+				{
+					if(DeviceInfo->aGroupInfos.GetAt(i)->sGroupID == pGroupInfoMsg->szGroupID)
+					{
+						GroupInfo = DeviceInfo->aGroupInfos.GetAt(i);
+						bFlag = TRUE;
+					}
+				}
+				if (!bFlag)
+				{
+					GroupInfo = new GROUP_INFO;
+					GroupInfo->sGroupID = pGroupInfoMsg->szGroupID;
+					DeviceInfo->aGroupInfos.Add(GroupInfo);
+				}
+				GroupInfo->nEffective = 1;
+				GroupInfo->nGreenLightNum = pGroupInfoMsg->nGreenLightNum;
+				GroupInfo->nNoneLightNum = pGroupInfoMsg->nNoneLightNum;
+				GroupInfo->nRedLightNum = pGroupInfoMsg->nRedLightNum;
+				GroupInfo->nRGLightNum = pGroupInfoMsg->nRGLightNum;
+
+				nRedLightNum = 0;
+				nGreenLightNum = 0;
+				nRGLightNum = 0;
+				nNoneLightNum = 0;
+				//遍历设备中与该组相关的信息
+				for (int i = 0; i < g_DeviceInfos.GetCount(); i++)
+				{
+					DeviceInfo = g_DeviceInfos.GetAt(i);
+					for (int j = 0; j < DeviceInfo->aGroupInfos.GetCount(); j++)
+					{
+						GroupInfo = DeviceInfo->aGroupInfos.GetAt(j);
+						if (GroupInfo->sGroupID == pGroupInfoMsg->szGroupID)
+						{
+							nRedLightNum += GroupInfo->nRedLightNum;
+							nGreenLightNum += GroupInfo->nGreenLightNum;
+							nNoneLightNum += GroupInfo->nNoneLightNum;
+							nRGLightNum += GroupInfo->nRGLightNum;
+						}
+					}
+				}
+
 				CString sSql;
-				sSql.Format(_T("UPDATE ClientInfo SET RedLightNum = %d, GreenLightNum = %d, NoneLightNum = %d WHERE ClientID = '%s'"),
-					pDeviceInfoMsg->nRedLightNum, pDeviceInfoMsg->nGreenLightNum, pDeviceInfoMsg->nNoneLightNum, pDeviceInfoMsg->szDeviceName);
+				sSql.Format(_T("UPDATE GroupInfo SET RedLightNum = %d, GreenLightNum = %d, NoneLightNum = %d, RGLightNum = %d WHERE GroupID = '%s'"),
+					nRedLightNum, nGreenLightNum, nNoneLightNum, nRGLightNum, pGroupInfoMsg->szGroupID);
 				g_DB.ExecuteSQL((_bstr_t)sSql);
 			}
 			break;
 		}
 	}
+
+	::closesocket(pcdata->sClient);
+	delete pcdata;
+	pcdata = NULL;
 }
 

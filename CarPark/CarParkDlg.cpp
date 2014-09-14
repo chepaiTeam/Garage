@@ -6,6 +6,7 @@
 #include "CarPark.h"
 #include "CarParkDlg.h"
 #include "afxdialogex.h"
+#include "CamSetDlg.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -17,7 +18,9 @@
 #define max(a,b)            (((a) > (b)) ? (a) : (b))
 #define min(a,b)            (((a) < (b)) ? (a) : (b))
 
-#define ID_VIDEOSTATIC 9001
+#define ID_VIDEOSTATIC	9001
+#define ID_LIGHTBTN		10000
+#define IDC_STATIC_ID	20000
 
 typedef struct
 {
@@ -33,8 +36,7 @@ int g_TotalDSPs = 0;
 int g_TotalChannel = 0;
 HANDLE g_hDSP[MAX_VIDEO_CHANNEL];
 
-
-
+int g_nRunModel;	//运行模式  0：运行   1：调试
 
 CCarParkDlg::CCarParkDlg(CWnd* pParent /*=NULL*/)
 	: CDialogEx(CCarParkDlg::IDD, pParent)
@@ -47,12 +49,21 @@ CCarParkDlg::CCarParkDlg(CWnd* pParent /*=NULL*/)
 		m_pVideoView[i] = NULL;
 	}
 
+	m_bComInit = FALSE;
 	m_bDeviceInit = FALSE;
 	m_nViewMode = 4;
 	g_pPort1 = NULL;
 	g_pPort2 = NULL;
 	m_pServer = NULL;
 	m_pClient = NULL;
+	g_nRunModel = 0;
+
+	m_Current = 0;
+
+	LoadImageFromResource(m_pImgLightRed, IDB_PNG_RED, "PNG");
+	LoadImageFromResource(m_pImgLightGreen, IDB_PNG_GREEN, "PNG");
+	LoadImageFromResource(m_pImgLightRG, IDB_PNG_RG, "PNG");
+	LoadImageFromResource(m_pImgLightNone, IDB_PNG_NONE, "PNG");
 }
 
 CCarParkDlg::~CCarParkDlg()
@@ -77,20 +88,11 @@ void CCarParkDlg::DoDataExchange(CDataExchange* pDX)
 {
 	CDialogEx::DoDataExchange(pDX);
 	//{{AFX_DATA_MAP(CCarParkDlg)
-	DDX_Control(pDX, IDC_STC_XD1, m_stcXD[0]);
-	DDX_Control(pDX, IDC_STC_XD2, m_stcXD[1]);
-	DDX_Control(pDX, IDC_STC_XD3, m_stcXD[2]);
-	DDX_Control(pDX, IDC_STC_XD4, m_stcXD[3]);
 	DDX_Control(pDX, IDC_CBOXD, m_cboXD);
-	DDX_Control(pDX, IDC_EDIT1, m_edtXH[0]);
-	DDX_Control(pDX, IDC_EDIT2, m_edtXH[1]);
-	DDX_Control(pDX, IDC_EDIT3, m_edtXH[2]);
-	DDX_Control(pDX, IDC_EDIT4, m_edtXH[3]);
-	DDX_Control(pDX, IDC_BUTTONSAVE, m_btnBC);
 	DDX_Control(pDX, IDC_BUTTONOPEN, m_btnYL);
-	DDX_Control(pDX, IDC_STATIC_NET, m_stcNet);
 	DDX_Control(pDX, IDC_RADIO1, m_rdoClient);
 	DDX_Control(pDX, IDC_RADIO2, m_rdoServer);
+	DDX_Control(pDX, IDC_COMBO_MODLE, m_cboRunModel);
 	//}}AFX_DATA_MAP
 }
 
@@ -102,15 +104,68 @@ BEGIN_MESSAGE_MAP(CCarParkDlg, CDialogEx)
 	ON_BN_CLICKED(IDC_BUTTON3X3, OnButton3x3)
 	ON_BN_CLICKED(IDC_BUTTON4X4, OnButton4x4)
 	ON_BN_CLICKED(IDC_BUTTON6X6, OnButton6x6)
-	ON_BN_CLICKED(IDC_BUTTONSAVE, OnBnClickedButtonSave)
+	//ON_BN_CLICKED(IDC_BUTTONSAVE, OnBnClickedButtonSave)
 	ON_BN_CLICKED(IDC_BUTTONOPEN, OnBnClickedButtonOpenView)
 
 	ON_MESSAGE(WM_VIEW_CLICK, OnMsgViewClick)
 	ON_MESSAGE(WM_VIEW_DBCLICK, OnMsgViewDbClick)
+	ON_WM_CREATE()
+	ON_CONTROL_RANGE(BN_CLICKED, ID_LIGHTBTN, ID_LIGHTBTN + 64, OnBnClickedButton)
+	ON_CONTROL_RANGE(BN_CLICKED, IDC_STATIC_ID, IDC_STATIC_ID + 64, OnStnClickedStatic)
+	ON_WM_CTLCOLOR()
+	ON_CBN_SELCHANGE(IDC_COMBO_MODLE, &CCarParkDlg::OnCbnSelchangeComboModle)
 END_MESSAGE_MAP()
 
 
 // CCarParkDlg 消息处理程序
+
+// CDental3DApp message handlers
+int CCarParkDlg::LoadImageFromResource(IN Image * &pImg,
+	IN UINT nResID, 
+	IN LPCSTR lpTyp)
+{
+	LPSTREAM pStream = NULL;
+	// 查找资源
+	//USES_CONVERSION;
+	HRSRC hRsrc = ::FindResourceA(AfxGetResourceHandle(), MAKEINTRESOURCE(nResID), lpTyp);
+	if (hRsrc == NULL) return -1;
+
+	// 加载资源
+	HGLOBAL hImgData = ::LoadResource(AfxGetResourceHandle(), hRsrc);
+	if (hImgData == NULL)
+	{
+		::FreeResource(hImgData);
+		return -1;
+	}
+
+	// 锁定内存中的指定资源
+	LPVOID lpVoid    = ::LockResource(hImgData);
+
+	DWORD dwSize    = ::SizeofResource(AfxGetResourceHandle(), hRsrc);
+	HGLOBAL hNew    = ::GlobalAlloc(GHND, dwSize);
+	LPBYTE lpByte    = (LPBYTE)::GlobalLock(hNew);
+	::memcpy(lpByte, lpVoid, dwSize);
+
+	// 解除内存中的指定资源
+	::GlobalUnlock(hNew);
+
+	// 从指定内存创建流对象
+	HRESULT ht = ::CreateStreamOnHGlobal(hNew, TRUE, &pStream);
+	if ( ht != S_OK )
+	{
+		GlobalFree(hNew);
+	}
+	else
+	{
+		pImg = Image::FromStream(pStream);
+		GlobalFree(hNew);
+	}
+
+	// 释放资源
+	::FreeResource(hImgData);
+
+	return 0;
+}
 
 BOOL CCarParkDlg::OnInitDialog()
 {
@@ -123,9 +178,6 @@ BOOL CCarParkDlg::OnInitDialog()
 
 	// TODO: 在此添加额外的初始化代码
 	//ShowWindow(SW_SHOWMAXIMIZED);
-	CString sTitle;
-	sTitle.Format(_T("设备号：%s"), g_sDeviceID);
-	SetWindowText(sTitle);
 
 	RegisterMessageNotifyHandle(this->GetSafeHwnd(), 1900);
 	TCHAR buf[MAX_PATH+1];
@@ -153,12 +205,15 @@ BOOL CCarParkDlg::OnInitDialog()
 	m_cboXD.AddString(_T("信道4"));
 	m_cboXD.SetCurSel(0);
 
-	m_nIDs[0] = -1;
-	m_nIDs[1] = -1;
-	m_nIDs[2] = -1;
-	m_nIDs[3] = -1;
+	m_cboRunModel.AddString(_T("运行"));
+	m_cboRunModel.AddString(_T("调试"));
+	m_cboRunModel.SetCurSel(g_nRunModel);
 
+	//窗体布局
 	InitRect();
+
+	//加载相机信息
+	LoadCamData();
 
 	//启动串口1数据采集
 	g_pPort1 = new CSerialPort(); 
@@ -173,6 +228,10 @@ BOOL CCarParkDlg::OnInitDialog()
 
 		g_pPort2->StartMonitoring();
 		g_pPort2->WriteToPort(_T("@1A1&"));
+
+		m_bComInit = TRUE;
+
+		InitLight(LIGHT_TYPE_GREEN);
 
 		//采集线程
 		::CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)CamThread, this, 0, NULL);
@@ -194,6 +253,64 @@ BOOL CCarParkDlg::OnInitDialog()
 	m_pClient->InitClient();
 
 	return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE
+}
+
+void CCarParkDlg::InitLight(int nLightType)
+{
+	if (!m_bComInit)
+		MessageBox(_T("串口未打开"));
+
+	int nCamCount = g_pCamInfos.GetCount();
+	CString str;
+	for (int i = 0; i < 64; i++)
+	{
+		if (i < nCamCount)
+		{
+			g_pCamInfos[i]->nLightType = nLightType;
+		}
+		CtrlLight(i, nLightType);
+	}
+}
+
+void CCarParkDlg::CtrlLight(int nID, int nLightType)
+{
+	if (!m_bComInit)
+		return;
+
+	CString str;
+	str.Format(_T("@1B%02d%d&"), nID % 32 + 1, nLightType);
+	if (nID >= 32)
+	{
+		g_pPort2->WriteToPort(str);
+	}else
+	{
+		g_pPort1->WriteToPort(str);
+	}
+	if (nID < 64)
+	{
+		if (m_LBtn[nID].GetLightType() != nLightType)
+		{
+			m_LBtn[nID].SetLightType(nLightType);
+			m_LBtn[nID].Invalidate(TRUE);
+		}
+		g_pCamInfos[nID]->nLightType = nLightType;
+	}
+}
+
+int CCarParkDlg::OnCreate(LPCREATESTRUCT lpCreateStruct)
+{
+	if (CDialogEx::OnCreate(lpCreateStruct) == -1)
+		return -1;
+
+	// TODO:  在此添加您专用的创建代码
+	for (int i = 0; i < 64; i++)
+	{
+		m_LBtn[i].SetLightPNG(m_pImgLightRed, m_pImgLightGreen, m_pImgLightRG, m_pImgLightNone);
+		m_LBtn[i].Create("", BS_PUSHBUTTON | WS_CHILD | WS_VISIBLE , CRect(0,0,0,0), this, ID_LIGHTBTN + i );
+
+		m_stcCamInfo[i].Create("", WS_CHILD | WS_VISIBLE | SS_LEFT | SS_NOTIFY , CRect(0,0,0,0), this, IDC_STATIC_ID + i );
+	}
+	return 0;
 }
 
 // 如果向对话框添加最小化按钮，则需要下面的代码
@@ -254,6 +371,9 @@ void CCarParkDlg::CamThread(LPVOID pParam)
 	ui->StartDevice();
 	Sleep(500);
 
+	//设备初始化完成
+	ui->m_bDeviceInit = TRUE;
+
 	unsigned int uCamNum = g_TotalChannel * 4;
 	unsigned int uCarNum = 0;
 
@@ -298,7 +418,7 @@ void CCarParkDlg::CamThread(LPVOID pParam)
 
 			for (j = 0; (j < g_TotalChannel) && g_bAppRun; j++)
 			{	
-				if(g_hDSP[j] != (HANDLE)0xffffffff)
+				if(g_hDSP[j] != (HANDLE)0xffffffff && g_nRunModel == 0)
 				{
 					//分配通道缓存数据
 					BYTE *TempBuf = new BYTE[1024 * 1024];
@@ -344,210 +464,209 @@ void CCarParkDlg::CVData(LPVOID pParam)
 
 	CString str;
 
-	int nWidth, nHeight, nSize;
-	BYTE *source;
-
-	BYTE *buf = NULL;
-	BYTE *dest1 = NULL;
-
-	int w, h, Num;
-	double R, G, B, y1, u1, v1, y2, u2, v2;
-
-	CvRect ROIRect = {0, 0, 0, 0};
-
-	IplImage* pImg = NULL;
-	IplImage* pContourImg = NULL;
-	IplImage* pImgEx = NULL;
-
-	//CvvImage cvvImg; //CvvImage类
-
 	unsigned int uCamID = i + j * 4;
-	if(g_pCamInfos[uCamID]->nLightColor == 0)
+	if(g_pCamInfos[uCamID]->nEffective != 0)
 	{
-		return;
-	}
+		int nWidth, nHeight, nSize;
+		BYTE *source;
 
-	//设置裁剪区域
-	ROIRect.x = g_pCamInfos[uCamID]->nRectX;
-	ROIRect.y = g_pCamInfos[uCamID]->nRectY;
-	ROIRect.width = g_pCamInfos[uCamID]->nRectW;
-	ROIRect.height = g_pCamInfos[uCamID]->nRectH;
+		BYTE *buf = NULL;
+		BYTE *dest1 = NULL;
 
-	nWidth = *(short *)TempBuffer;
-	nHeight = *(short *)(TempBuffer + 2);
-	source = TempBuffer + 4;
+		int w, h, Num;
+		double R, G, B, y1, u1, v1, y2, u2, v2;
 
-	if (nWidth <= 50)
-	{
-		return;
-	}
+		CvRect ROIRect = {0, 0, 0, 0};
 
-	nSize = 3 * nWidth * nHeight;
+		IplImage* pImg = NULL;
+		IplImage* pContourImg = NULL;
+		IplImage* pImgEx = NULL;
 
-	if (!buf)
-	{
-		buf = new BYTE [nSize];
-	}
+		//CvvImage cvvImg; //CvvImage类
 
-	dest1 = buf;
+		//设置裁剪区域
+		ROIRect.x = g_pCamInfos[uCamID]->nRectX;
+		ROIRect.y = g_pCamInfos[uCamID]->nRectY;
+		ROIRect.width = g_pCamInfos[uCamID]->nRectW;
+		ROIRect.height = g_pCamInfos[uCamID]->nRectH;
 
-	for (h=0; h<nHeight; h++)
-	{
+		nWidth = *(short *)TempBuffer;
+		nHeight = *(short *)(TempBuffer + 2);
+		source = TempBuffer + 4;
 
-		for (w=0;w<nWidth/2;w++)
+		if (nWidth <= 50)
 		{
-			y1 = source[0];
-			y2 = source[2];
-			v1 = v2 = source[3]-128;
-			u1 = u2 = source[1]-128;
-
-			R = (double)(y1 + 1.375 * v1);
-			G = (double)(y1 - 0.34375 * u1 - 0.703125 * v1);
-			B = (double)(y1 + 1.734375 * u1);
-			R = max (0, min (255, R));
-			G = max (0, min (255, G));
-			B = max (0, min (255, B));
-
-			dest1[0] = (BYTE)B;
-			dest1[1] = (BYTE)G;
-			dest1[2] = (BYTE)R;
-			dest1 += 3;
-
-			R = (double)(y2 + 1.375 * v1);
-			G = (double)(y2 - 0.34375 * u1 - 0.703125 * v1);
-			B = (double)(y2 + 1.734375 * u1);
-			R = max (0, min (255, R));
-			G = max (0, min (255, G));
-			B = max (0, min (255, B));
-
-			dest1[0] = (BYTE)B;
-			dest1[1] = (BYTE)G;
-			dest1[2] = (BYTE)R;
-			dest1 += 3;
-
-			source += 4;
-		}
-	}
-
-	if (!pImg)
-	{
-		pImg = cvCreateImage( cvSize(nWidth, nHeight), IPL_DEPTH_8U, 3 );
-		pImgEx = cvCreateImage(cvSize(ROIRect.width, ROIRect.height), IPL_DEPTH_8U, 3);
-		pContourImg = cvCreateImage(cvGetSize(pImgEx), IPL_DEPTH_8U, 1);
-	}
-
-	memcpy(pImg->imageData, buf, nSize);
-
-	cvSetImageROI(pImg, ROIRect);
-	cvCopy(pImg, pImgEx);
-	cvResetImageROI(pImg);
-
-	//cvRectangle(pImg, cvPoint( ROIRect.x, ROIRect.y ), cvPoint( ROIRect.x + ROIRect.width, ROIRect.y + ROIRect.height-2 ), cvScalar(200, 0, 0, 0), 1, 8, 0);
-
-	//将原始图像转化为灰阶图像
-	cvCvtColor(pImgEx, pContourImg, CV_RGB2GRAY);
-
-	cvCanny(pContourImg ,pContourImg, 50, 100, 3);
-
-	//灰阶图像的平滑与增强处理
-	cvSmooth(pContourImg, pContourImg, CV_GAUSSIAN, 5); //高斯滤波
-
-	//灰阶图像转化为二值图像
-	cvThreshold(pContourImg, pContourImg, 50, 100, CV_THRESH_BINARY);
-
-	CvMemStorage * storage = cvCreateMemStorage(0);  
-	CvSeq * contour = NULL;
-
-	//从二值图像中提取轮廓
-	Num = cvFindContours( pContourImg, storage, &contour, sizeof(CvContour), CV_RETR_LIST, CV_CHAIN_APPROX_SIMPLE);//CV_CHAIN_APPROX_SIMPLE
-	//TRACE("The number of Contours is: %d\n", Num);
-
-
-	//for(; contour!=0; contour=contour->h_next)  
-	//{
-	//	//获得多边形轮廓
-	//	CvSeq *polyContours = cvApproxPoly(contour, sizeof(CvContour), cvCreateMemStorage(0), CV_POLY_APPROX_DP, cvContourPerimeter(contour) * 0.05, 0);
-
-	//	if (polyContours->total == 4)
-	//	{
-	//		//获得轮廓外框
-	//		CvRect boundingRect = cvBoundingRect(polyContours, 0);
-	//		//检查轮廓宽高比
-	//		double plate_HWratio = ((double) boundingRect.width) / ((double) boundingRect.height);
-
-	//		if ( boundingRect.width > 80 && boundingRect.height > 40)//plate_HWratio > 2.8 && plate_HWratio < 3.4 &&
-	//		{
-
-	//			TRACE("polyContours->total = %d, Area = %d\n", polyContours->total, cvContourArea(polyContours, CV_WHOLE_SEQ));
-	//			TRACE("Width = %d, Height = %d, HWratio = %.2f\n", boundingRect.width, boundingRect.height, plate_HWratio);
-	//			//将轮廓画出
-	//			cvDrawContours(pContourImg, polyContours, CV_RGB(255,0,0), CV_RGB(0, 255, 0), 0, 2, 0); 
-	//		}
-	//	} else {
-	//		//TRACE("polyContours->total = %d\n", polyContours->total);
-	//	}
-	//}
-
-
-
-	if (j == ui->m_Current)
-	{
-		str.Format(_T("摄像头ID：%d\t信号量：%d"), g_pCamInfos[uCamID]->nID, Num);
-		ui->m_stcXD[i].SetWindowText(str);
-		if (ui->m_nIDs[i] != g_pCamInfos[uCamID]->nID)
-		{
-			ui->m_nIDs[i] = g_pCamInfos[uCamID]->nID;
-			str.Format(_T("%d"), g_pCamInfos[uCamID]->nBaseNum);
-			ui->m_edtXH[i].SetWindowText(str);
+			return;
 		}
 
-		//cvvImg.CopyOf(pImg);//复制图像到当前的CvvImage对象中  
-		//cvvImg.DrawToHDC(ui->m_SrcVideoView.GetDC()->GetSafeHdc(), &rect);
-		//cvvImg.Destroy();
+		nSize = 3 * nWidth * nHeight;
 
-		//cvvImg.CopyOf(pContourImg);//复制图像到当前的CvvImage对象中  
-		//cvvImg.DrawToHDC(ui->m_ConVideoView.GetDC()->GetSafeHdc(), &rect);
-		//cvvImg.Destroy();
-	}
+		if (!buf)
+		{
+			buf = new BYTE [nSize];
+		}
 
-	//计算固定值
-	if (Num > g_pCamInfos[uCamID]->nBaseNum)
-	{
-		g_pCamInfos[uCamID]->nLightColor = 1;
+		dest1 = buf;
+
+		for (h=0; h<nHeight; h++)
+		{
+
+			for (w=0;w<nWidth/2;w++)
+			{
+				y1 = source[0];
+				y2 = source[2];
+				v1 = v2 = source[3]-128;
+				u1 = u2 = source[1]-128;
+
+				R = (double)(y1 + 1.375 * v1);
+				G = (double)(y1 - 0.34375 * u1 - 0.703125 * v1);
+				B = (double)(y1 + 1.734375 * u1);
+				R = max (0, min (255, R));
+				G = max (0, min (255, G));
+				B = max (0, min (255, B));
+
+				dest1[0] = (BYTE)B;
+				dest1[1] = (BYTE)G;
+				dest1[2] = (BYTE)R;
+				dest1 += 3;
+
+				R = (double)(y2 + 1.375 * v1);
+				G = (double)(y2 - 0.34375 * u1 - 0.703125 * v1);
+				B = (double)(y2 + 1.734375 * u1);
+				R = max (0, min (255, R));
+				G = max (0, min (255, G));
+				B = max (0, min (255, B));
+
+				dest1[0] = (BYTE)B;
+				dest1[1] = (BYTE)G;
+				dest1[2] = (BYTE)R;
+				dest1 += 3;
+
+				source += 4;
+			}
+		}
+
+		if (!pImg)
+		{
+			pImg = cvCreateImage( cvSize(nWidth, nHeight), IPL_DEPTH_8U, 3 );
+			pImgEx = cvCreateImage(cvSize(ROIRect.width, ROIRect.height), IPL_DEPTH_8U, 3);
+			pContourImg = cvCreateImage(cvGetSize(pImgEx), IPL_DEPTH_8U, 1);
+		}
+
+		memcpy(pImg->imageData, buf, nSize);
+
+		cvSetImageROI(pImg, ROIRect);
+		cvCopy(pImg, pImgEx);
+		cvResetImageROI(pImg);
+
+		//cvRectangle(pImg, cvPoint( ROIRect.x, ROIRect.y ), cvPoint( ROIRect.x + ROIRect.width, ROIRect.y + ROIRect.height-2 ), cvScalar(200, 0, 0, 0), 1, 8, 0);
+
+		//将原始图像转化为灰阶图像
+		cvCvtColor(pImgEx, pContourImg, CV_RGB2GRAY);
+
+		cvCanny(pContourImg ,pContourImg, 50, 100, 3);
+
+		//灰阶图像的平滑与增强处理
+		cvSmooth(pContourImg, pContourImg, CV_GAUSSIAN, 5); //高斯滤波
+
+		//灰阶图像转化为二值图像
+		cvThreshold(pContourImg, pContourImg, 50, 100, CV_THRESH_BINARY);
+
+		CvMemStorage * storage = cvCreateMemStorage(0);  
+		CvSeq * contour = NULL;
+
+		//从二值图像中提取轮廓
+		Num = cvFindContours( pContourImg, storage, &contour, sizeof(CvContour), CV_RETR_LIST, CV_CHAIN_APPROX_SIMPLE);//CV_CHAIN_APPROX_SIMPLE
+		//TRACE("The number of Contours is: %d\n", Num);
+
+		//for(; contour!=0; contour=contour->h_next)  
+		//{
+		//	//获得多边形轮廓
+		//	CvSeq *polyContours = cvApproxPoly(contour, sizeof(CvContour), cvCreateMemStorage(0), CV_POLY_APPROX_DP, cvContourPerimeter(contour) * 0.05, 0);
+
+		//	if (polyContours->total == 4)
+		//	{
+		//		//获得轮廓外框
+		//		CvRect boundingRect = cvBoundingRect(polyContours, 0);
+		//		//检查轮廓宽高比
+		//		double plate_HWratio = ((double) boundingRect.width) / ((double) boundingRect.height);
+
+		//		if ( boundingRect.width > 80 && boundingRect.height > 40)//plate_HWratio > 2.8 && plate_HWratio < 3.4 &&
+		//		{
+
+		//			TRACE("polyContours->total = %d, Area = %d\n", polyContours->total, cvContourArea(polyContours, CV_WHOLE_SEQ));
+		//			TRACE("Width = %d, Height = %d, HWratio = %.2f\n", boundingRect.width, boundingRect.height, plate_HWratio);
+		//			//将轮廓画出
+		//			cvDrawContours(pContourImg, polyContours, CV_RGB(255,0,0), CV_RGB(0, 255, 0), 0, 2, 0); 
+		//		}
+		//	} else {
+		//		//TRACE("polyContours->total = %d\n", polyContours->total);
+		//	}
+		//}
+
+		str.Format(_T("%02d-%d"), g_pCamInfos[uCamID]->nID, Num);
+		ui->m_stcCamInfo[uCamID].SetWindowText(str);
+
+		//if (j == ui->m_Current)
+		//{
+		//	if (ui->m_nIDs[i] != g_pCamInfos[uCamID]->nID)
+		//	{
+		//		ui->m_nIDs[i] = g_pCamInfos[uCamID]->nID;
+		//		str.Format(_T("%d"), g_pCamInfos[uCamID]->nBaseNum);
+		//		ui->m_edtXH[i].SetWindowText(str);
+		//	}
+
+		//	//cvvImg.CopyOf(pImg);//复制图像到当前的CvvImage对象中  
+		//	//cvvImg.DrawToHDC(ui->m_SrcVideoView.GetDC()->GetSafeHdc(), &rect);
+		//	//cvvImg.Destroy();
+
+		//	//cvvImg.CopyOf(pContourImg);//复制图像到当前的CvvImage对象中  
+		//	//cvvImg.DrawToHDC(ui->m_ConVideoView.GetDC()->GetSafeHdc(), &rect);
+		//	//cvvImg.Destroy();
+		//}
+
+		//计算固定值
+		if (Num > g_pCamInfos[uCamID]->nBaseNum)
+		{
+			g_pCamInfos[uCamID]->nLightType = LIGHT_TYPE_RED;
+		}else
+		{
+			g_pCamInfos[uCamID]->nLightType = LIGHT_TYPE_GREEN;
+		}
+
+		////计算偏移量
+		//if (abs(Num - ui->m_pCamInfos[uCamID].nBaseNum) >= ui->m_pCamInfos[uCamID].nOffset)
+		//{
+		//	ui->m_pCamInfos[uCamID].nIsCar = 1;
+		//}else
+		//{
+		//	ui->m_pCamInfos[uCamID].nIsCar = 0;
+		//}
+
+		cvReleaseMemStorage( &storage );
+
+		//释放图像
+		cvReleaseImage( &pImg );
+		cvReleaseImage( &pImgEx );
+		cvReleaseImage( &pContourImg );
+
+		delete[] buf;
+		buf = NULL;
 	}else
 	{
-		g_pCamInfos[uCamID]->nLightColor = 2;
+		g_pCamInfos[uCamID]->nLightType = LIGHT_TYPE_NONE;
 	}
 
-	////计算偏移量
-	//if (abs(Num - ui->m_pCamInfos[uCamID].nBaseNum) >= ui->m_pCamInfos[uCamID].nOffset)
+	ui->CtrlLight(uCamID, g_pCamInfos[uCamID]->nLightType);
+	//str.Format(_T("@1B%02d%d&"), i + (j % 8) * 4 + 1, 
+	//	g_pCamInfos[uCamID]->nLightType);
+	//if (j > 7)
 	//{
-	//	ui->m_pCamInfos[uCamID].nIsCar = 1;
+	//	g_pPort2->WriteToPort(str);
 	//}else
 	//{
-	//	ui->m_pCamInfos[uCamID].nIsCar = 0;
+	//	g_pPort1->WriteToPort(str);
 	//}
-
-
-	str.Format(_T("@1B%02d%d&"), i + (j % 8) * 4 + 1, 
-		g_pCamInfos[uCamID]->nLightColor);
-	if (j > 7)
-	{
-		g_pPort2->WriteToPort(str);
-	}else
-	{
-		g_pPort1->WriteToPort(str);
-	}
-
-	cvReleaseMemStorage( &storage );
-
-	//释放图像
-	cvReleaseImage( &pImg );
-	cvReleaseImage( &pImgEx );
-	cvReleaseImage( &pContourImg );
-
-	delete[] buf;
-	buf = NULL;
 
 	delete[] pCvInfo->TempBuffer;
 	pCvInfo->TempBuffer = NULL;
@@ -583,10 +702,6 @@ void CCarParkDlg::DeviceInit()
 	SYSTEM_BOARD_INFO system_info;
 	GetSystemBoardInfo(&system_info);
 	GpioInit(1, 0xffffff00);
-
-	LoadCamData();
-
-	m_bDeviceInit = TRUE;
 }
 
 void CCarParkDlg::StartDevice() 
@@ -706,79 +821,97 @@ void CCarParkDlg::ParameInit()
 
 void CCarParkDlg::LoadCamData()
 {
-	if (g_TotalChannel > 0)
+	int nCamSum = 64;
+	int nIndex = 0;
+
+	_RecordsetPtr rs=g_DB.GetRecordset(_T("SELECT * FROM CamInfo"));
+	while(!rs->adoEOF && nIndex < nCamSum)
 	{
-		int nCamSum = g_TotalChannel * 4;
-		int nIndex = 0;
+		CAM_INFO *pCamInfo = new CAM_INFO;
 
-		_RecordsetPtr rs=g_DB.GetRecordset(_T("SELECT * FROM CamInfo"));
-		while(!rs->adoEOF && nIndex < nCamSum)
+		if (rs->GetCollect(_T("ID")).vt != VT_NULL)
 		{
-			CAM_INFO *pCamInfo = new CAM_INFO;
-			if (rs->GetCollect(_T("ID")).vt != VT_NULL)
-			{
-				pCamInfo->nID = _ttoi((LPCSTR)(_bstr_t)rs->GetCollect(_T("ID")));
-			}
-
-			if (rs->GetCollect(_T("LightColor")).vt != VT_NULL)
-			{
-				pCamInfo->nLightColor = _ttoi((LPCSTR)(_bstr_t)rs->GetCollect(_T("LightColor")));
-			}
-
-			if (rs->GetCollect(_T("BaseNum")).vt != VT_NULL)
-			{
-				pCamInfo->nBaseNum = _ttoi((LPCSTR)(_bstr_t)rs->GetCollect(_T("BaseNum")));
-			}
-
-			if (rs->GetCollect(_T("Offset")).vt != VT_NULL)
-			{
-				pCamInfo->nOffset = _ttoi((LPCSTR)(_bstr_t)rs->GetCollect(_T("Offset")));
-			}
-
-			if (rs->GetCollect(_T("RectX")).vt != VT_NULL)
-			{
-				pCamInfo->nRectX = _ttoi((LPCSTR)(_bstr_t)rs->GetCollect(_T("RectX")));
-			}
-
-			if (rs->GetCollect(_T("RectY")).vt != VT_NULL)
-			{
-				pCamInfo->nRectY = _ttoi((LPCSTR)(_bstr_t)rs->GetCollect(_T("RectY")));
-			}
-
-			if (rs->GetCollect(_T("RectW")).vt != VT_NULL)
-			{
-				pCamInfo->nRectW = _ttoi((LPCSTR)(_bstr_t)rs->GetCollect(_T("RectW")));
-			}
-
-			if (rs->GetCollect(_T("RectH")).vt != VT_NULL)
-			{
-				pCamInfo->nRectH = _ttoi((LPCSTR)(_bstr_t)rs->GetCollect(_T("RectH")));
-			}
-
-			rs->MoveNext();
-			nIndex++;
-
-			g_pCamInfos.Add(pCamInfo);
+			pCamInfo->nID = _ttoi((LPCSTR)(_bstr_t)rs->GetCollect(_T("ID")));
 		}
-		rs->Close();
 
-		while (nIndex < nCamSum)
+		if (rs->GetCollect(_T("GroupID")).vt != VT_NULL)
 		{
-			CAM_INFO *pCamInfo = new CAM_INFO;
-			//给默认值
-			pCamInfo->nID = -1;
-			pCamInfo->nLightColor = 1;
-			pCamInfo->nBaseNum = 50;
-			pCamInfo->nOffset = 10;
-			pCamInfo->nRectX = 60;
-			pCamInfo->nRectY = 0;
-			pCamInfo->nRectW = 200;
-			pCamInfo->nRectH = 240;
-
-			nIndex++;
-			g_pCamInfos.Add(pCamInfo);
+			pCamInfo->sGroupID = (LPCSTR)(_bstr_t)rs->GetCollect(_T("GroupID"));
 		}
+
+		if (rs->GetCollect(_T("Effective")).vt != VT_NULL)
+		{
+			pCamInfo->nEffective = _ttoi((LPCSTR)(_bstr_t)rs->GetCollect(_T("Effective")));
+		}
+
+		if (rs->GetCollect(_T("BaseNum")).vt != VT_NULL)
+		{
+			pCamInfo->nBaseNum = _ttoi((LPCSTR)(_bstr_t)rs->GetCollect(_T("BaseNum")));
+		}
+
+		if (rs->GetCollect(_T("Offset")).vt != VT_NULL)
+		{
+			pCamInfo->nOffset = _ttoi((LPCSTR)(_bstr_t)rs->GetCollect(_T("Offset")));
+		}
+
+		if (rs->GetCollect(_T("RectX")).vt != VT_NULL)
+		{
+			pCamInfo->nRectX = _ttoi((LPCSTR)(_bstr_t)rs->GetCollect(_T("RectX")));
+		}
+
+		if (rs->GetCollect(_T("RectY")).vt != VT_NULL)
+		{
+			pCamInfo->nRectY = _ttoi((LPCSTR)(_bstr_t)rs->GetCollect(_T("RectY")));
+		}
+
+		if (rs->GetCollect(_T("RectW")).vt != VT_NULL)
+		{
+			pCamInfo->nRectW = _ttoi((LPCSTR)(_bstr_t)rs->GetCollect(_T("RectW")));
+		}
+
+		if (rs->GetCollect(_T("RectH")).vt != VT_NULL)
+		{
+			pCamInfo->nRectH = _ttoi((LPCSTR)(_bstr_t)rs->GetCollect(_T("RectH")));
+		}
+
+		rs->MoveNext();
+		nIndex++;
+
+		g_pCamInfos.Add(pCamInfo);
 	}
+	rs->Close();
+	if (nIndex < nCamSum)
+	{
+		g_CamGroupID.Add(_T(""));
+	}
+	while (nIndex < nCamSum)
+	{
+		CAM_INFO *pCamInfo = new CAM_INFO;
+		//给默认值
+		pCamInfo->nID = -1;
+		pCamInfo->sGroupID = "";
+		pCamInfo->nEffective = 1;
+		pCamInfo->nBaseNum = 50;
+		pCamInfo->nOffset = 10;
+		pCamInfo->nRectX = 60;
+		pCamInfo->nRectY = 0;
+		pCamInfo->nRectW = 200;
+		pCamInfo->nRectH = 240;
+
+		nIndex++;
+		g_pCamInfos.Add(pCamInfo);
+	}
+
+	rs = g_DB.GetRecordset(_T("SELECT GroupID FROM CamInfo GROUP BY GroupID"));
+	while(!rs->adoEOF)
+	{
+		if (rs->GetCollect(_T("GroupID")).vt != VT_NULL)
+		{
+			g_CamGroupID.Add((LPCSTR)(_bstr_t)rs->GetCollect(_T("GroupID")));
+		}
+		rs->MoveNext();
+	}
+	rs->Close();
 }
 
 LRESULT CCarParkDlg::OnMsgViewDbClick(WPARAM wParam, LPARAM lParam)
@@ -905,27 +1038,6 @@ CString CCarParkDlg::GetBaseDir(const CString &path)
 	return out;
 }
 
-void CCarParkDlg::OnBnClickedButtonSave()
-{
-	// TODO: 在此添加控件通知处理程序代码
-	int nBaseNum[4];
-	CString sTemp;
-	for (int i = 0; i < 4; i++)
-	{
-		m_edtXH[i].GetWindowText(sTemp);
-		nBaseNum[i] = _ttoi(sTemp);
-		sTemp.Format(_T("UPDATE CamInfo SET BaseNum = '%d' WHERE ID = %d"), nBaseNum[i], m_nIDs[i]);
-		g_DB.ExecuteSQL((_bstr_t)sTemp);
-		for (int j = 0; j < g_TotalChannel * 4; j++)
-		{
-			if (g_pCamInfos[j]->nID == m_nIDs[i])
-			{
-				g_pCamInfos[j]->nBaseNum = nBaseNum[i];
-			}
-		}
-	}
-}
-
 void CCarParkDlg::OnBnClickedButtonOpenView()
 {
 	// TODO: 在此添加控件通知处理程序代码
@@ -970,13 +1082,11 @@ void CCarParkDlg::OnSize(UINT nType, int cx, int cy)
 	CDialogEx::OnSize(nType, cx, cy);
 
 	// TODO: 在此处添加消息处理程序代码
-	if (m_pVideoView[0])
-		InitRect();
+	//if (m_pVideoView[0])
 }
 
 void CCarParkDlg::InitRect()
 {
-	m_Current = 0;
 	m_bOne = FALSE;
 	for(int i = 0; i<MAX_VIDEO_CHANNEL; i++)
 	{
@@ -986,7 +1096,7 @@ void CCarParkDlg::InitRect()
 	this->GetClientRect(&rect);
 
 	m_Onerect.left = 5;
-	m_Onerect.top = 5;
+	m_Onerect.top = 40;
 	m_Onerect.right = (rect.bottom - 4) / 0.75;
 	m_Onerect.bottom = rect.bottom - 4;
 
@@ -994,47 +1104,71 @@ void CCarParkDlg::InitRect()
 
 	ShowHideScreen();
 
-	//m_SrcVideoView.Create(_T("Video Static"), WS_CHILD|WS_VISIBLE|SS_CENTER, CRect(0, 0, 10, 10), this, ID_VIDEOSTATIC + 100);
-	//m_ConVideoView.Create(_T("Video Static"), WS_CHILD|WS_VISIBLE|SS_CENTER, CRect(0, 0, 10, 10), this, ID_VIDEOSTATIC + 100);
+	CString str;
+	for (int i = 0; i < 4; i++)
+	{
+		for (int j = 0; j < 2; j++)
+		{
+			for (int k = 0; k < 2; k++)
+			{
+				for (int l = 0; l < 2; l++)
+				{
+					m_LBtn[i * 8 + j * 4 + k * 2 + l].MoveWindow(m_Onerect.right + 20 + j * 220 + k * 90, 65 + i * 70 + l * 30, 25, 25);
+					m_stcCamInfo[i * 8 + j * 4 + k * 2 + l].MoveWindow(m_Onerect.right + 47 + j * 220 + k * 90, 71 + i * 70 + l * 30, 50, 20);
+					str.Format("%02d-0", i * 8 + j * 4 + k * 2 + l + 1);
+					m_stcCamInfo[i * 8 + j * 4 + k * 2 + l].SetWindowText(str);
 
-	this->GetDlgItem(IDC_BUTTON2X2)->MoveWindow(m_Onerect.right + 10, 10, (nToolWidth - 20) / 4, 50);
-	this->GetDlgItem(IDC_BUTTON3X3)->MoveWindow(m_Onerect.right + 10 + (nToolWidth - 20) / 4, 10, (nToolWidth - 20) / 4, 50);
-	this->GetDlgItem(IDC_BUTTON4X4)->MoveWindow(m_Onerect.right + 10 + (nToolWidth - 20) / 4 * 2, 10, (nToolWidth - 20) / 4, 50);
-	this->GetDlgItem(IDC_BUTTON6X6)->MoveWindow(m_Onerect.right + 10 + (nToolWidth - 20) / 4 * 3, 10, (nToolWidth - 20) / 4, 50);
+					m_LBtn[i * 8 + j * 4 + k * 2 + l + 32].MoveWindow(m_Onerect.right + 20 + j * 220 + k * 90, 391 + i * 70 + l * 30, 25, 25);
+					m_stcCamInfo[i * 8 + j * 4 + k * 2 + l + 32].MoveWindow(m_Onerect.right + 47 + j * 220 + k * 90, 397 + i * 70 + l * 30, 50, 20);
+					str.Format("%02d-0", i * 8 + j * 4 + k * 2 + l + 32 + 1);
+					m_stcCamInfo[i * 8 + j * 4 + k * 2 + l + 32].SetWindowText(str);
+				}
+			}
+		}
+	}
 
-	//m_SrcVideoView.MoveWindow(m_Onerect.right + 10,  130, rect.right - m_Onerect.right - 20, (rect.right - m_Onerect.right - 20) * 0.75);
-	//CRect rectS;
-	//m_SrcVideoView.GetWindowRect(rectS);
-	//rectS.OffsetRect(0, rectS.Height() + 10);
+	return;
 
-	//m_ConVideoView.MoveWindow(rectS);
+	////m_SrcVideoView.Create(_T("Video Static"), WS_CHILD|WS_VISIBLE|SS_CENTER, CRect(0, 0, 10, 10), this, ID_VIDEOSTATIC + 100);
+	////m_ConVideoView.Create(_T("Video Static"), WS_CHILD|WS_VISIBLE|SS_CENTER, CRect(0, 0, 10, 10), this, ID_VIDEOSTATIC + 100);
 
-	//this->GetDlgItem(IDC_BUTTON42)->MoveWindow(m_Onerect.right + 10, 70, rect.right - m_Onerect.right - 20, 50);
+	//this->GetDlgItem(IDC_BUTTON2X2)->MoveWindow(m_Onerect.right + 10, 10, (nToolWidth - 20) / 4, 50);
+	//this->GetDlgItem(IDC_BUTTON3X3)->MoveWindow(m_Onerect.right + 10 + (nToolWidth - 20) / 4, 10, (nToolWidth - 20) / 4, 50);
+	//this->GetDlgItem(IDC_BUTTON4X4)->MoveWindow(m_Onerect.right + 10 + (nToolWidth - 20) / 4 * 2, 10, (nToolWidth - 20) / 4, 50);
+	//this->GetDlgItem(IDC_BUTTON6X6)->MoveWindow(m_Onerect.right + 10 + (nToolWidth - 20) / 4 * 3, 10, (nToolWidth - 20) / 4, 50);
 
-	m_stcXD[0].MoveWindow(m_Onerect.right + 10, 90, 160, 25);
-	m_stcXD[0].SetWindowText(_T("摄像头ID：0\t信号量：0"));
-	m_stcXD[1].MoveWindow(m_Onerect.right + 10, 130, 160, 25);
-	m_stcXD[1].SetWindowText(_T("摄像头ID：0\t信号量：0"));
-	m_stcXD[2].MoveWindow(m_Onerect.right + 10, 170, 160, 25);
-	m_stcXD[2].SetWindowText(_T("摄像头ID：0\t信号量：0"));
-	m_stcXD[3].MoveWindow(m_Onerect.right + 10, 210, 160, 25);
-	m_stcXD[3].SetWindowText(_T("摄像头ID：0\t信号量：0"));
+	////m_SrcVideoView.MoveWindow(m_Onerect.right + 10,  130, rect.right - m_Onerect.right - 20, (rect.right - m_Onerect.right - 20) * 0.75);
+	////CRect rectS;
+	////m_SrcVideoView.GetWindowRect(rectS);
+	////rectS.OffsetRect(0, rectS.Height() + 10);
 
-	m_cboXD.MoveWindow(m_Onerect.right + 10, 250, 120, 125);
+	////m_ConVideoView.MoveWindow(rectS);
 
-	m_edtXH[0].MoveWindow(m_Onerect.right + 170, 90, nToolWidth - 180, 25);
-	m_edtXH[1].MoveWindow(m_Onerect.right + 170, 130, nToolWidth - 180, 25);
-	m_edtXH[2].MoveWindow(m_Onerect.right + 170, 170, nToolWidth - 180, 25);
-	m_edtXH[3].MoveWindow(m_Onerect.right + 170, 210, nToolWidth - 180, 25);
+	////this->GetDlgItem(IDC_BUTTON42)->MoveWindow(m_Onerect.right + 10, 70, rect.right - m_Onerect.right - 20, 50);
 
-	m_btnBC.MoveWindow(m_Onerect.right + 170, 250, nToolWidth - 180, 25);
+	//m_stcXD[0].MoveWindow(m_Onerect.right + 10, 90, 160, 25);
+	//m_stcXD[0].SetWindowText(_T("摄像头ID：0\t信号量：0"));
+	//m_stcXD[1].MoveWindow(m_Onerect.right + 10, 130, 160, 25);
+	//m_stcXD[1].SetWindowText(_T("摄像头ID：0\t信号量：0"));
+	//m_stcXD[2].MoveWindow(m_Onerect.right + 10, 170, 160, 25);
+	//m_stcXD[2].SetWindowText(_T("摄像头ID：0\t信号量：0"));
+	//m_stcXD[3].MoveWindow(m_Onerect.right + 10, 210, 160, 25);
+	//m_stcXD[3].SetWindowText(_T("摄像头ID：0\t信号量：0"));
 
-	m_btnYL.MoveWindow(m_Onerect.right + 10, 300, 120, 25);
-	m_btnYL.SetWindowText(_T("开启预览"));
+	//m_cboXD.MoveWindow(m_Onerect.right + 10, 250, 120, 125);
 
-	m_stcNet.MoveWindow(m_Onerect.right + 10, 350, nToolWidth - 20, 80);
-	m_rdoClient.MoveWindow(m_Onerect.right + 40, 370, 70, 25);
-	m_rdoServer.MoveWindow(m_Onerect.right + 150, 370, 70, 25);
+	//m_edtXH[0].MoveWindow(m_Onerect.right + 170, 90, nToolWidth - 180, 25);
+	//m_edtXH[1].MoveWindow(m_Onerect.right + 170, 130, nToolWidth - 180, 25);
+	//m_edtXH[2].MoveWindow(m_Onerect.right + 170, 170, nToolWidth - 180, 25);
+	//m_edtXH[3].MoveWindow(m_Onerect.right + 170, 210, nToolWidth - 180, 25);
+
+	//m_btnBC.MoveWindow(m_Onerect.right + 170, 250, nToolWidth - 180, 25);
+
+	//m_btnYL.MoveWindow(m_Onerect.right + 10, 300, 120, 25);
+	//m_btnYL.SetWindowText(_T("开启预览"));
+
+	//m_rdoClient.MoveWindow(m_Onerect.right + 40, 370, 70, 25);
+	//m_rdoServer.MoveWindow(m_Onerect.right + 150, 370, 70, 25);
 }
 
 
@@ -1112,3 +1246,55 @@ BOOL CCarParkDlg::DestroyWindow()
 	return CDialogEx::DestroyWindow();
 }
 
+void CCarParkDlg::OnBnClickedButton(UINT uID)
+{
+	int nIndex = uID - ID_LIGHTBTN;
+	if (g_nRunModel == 1)
+	{
+		CtrlLight(nIndex, (m_LBtn[nIndex].GetLightType() + 1) % 4);
+	}
+}
+
+void CCarParkDlg::OnStnClickedStatic(UINT uID)
+{
+	int nIndex = uID - IDC_STATIC_ID;
+	if (nIndex >= 0 && nIndex < 64)
+	{
+		CCamSetDlg CamSetDlg;
+		CamSetDlg.SetCamInfo(g_pCamInfos[nIndex]);
+		CamSetDlg.DoModal();
+		SetSelStc(NULL);
+		m_stcCamInfo[nIndex].Invalidate();
+	}
+}
+
+
+HBRUSH CCarParkDlg::OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor)
+{
+	HBRUSH hbr = CDialogEx::OnCtlColor(pDC, pWnd, nCtlColor);
+
+	// TODO:  在此更改 DC 的任何特性
+	switch(nCtlColor)
+	{
+	case CTLCOLOR_STATIC://在此加入你想要改变背景色的控件消息
+		if (m_wSelStc == pWnd)
+		{
+			pDC->SetTextColor(RGB(255,0,0));
+		}
+		break;
+	}
+	// TODO:  如果默认的不是所需画笔，则返回另一个画笔
+	return hbr;
+}
+
+void CCarParkDlg::SetSelStc(CWnd *wSelStc)
+{
+	m_wSelStc = wSelStc;
+}
+
+void CCarParkDlg::OnCbnSelchangeComboModle()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	g_nRunModel = m_cboRunModel.GetCurSel();
+	InitLight(LIGHT_TYPE_GREEN);
+}

@@ -3,6 +3,10 @@
 *.user
 *.opensdf
 *.aps
+*.exe
+*.ilk
+*.pdb
+*.ldb
 ipch/
 /CarPark/Release
 /CarPark/Debug

@@ -39,6 +39,9 @@ public:
 	static UINT WriteIniString(LPCTSTR lpAppName, LPCTSTR lpKeyName, LPCTSTR lpString);
 	//读取整形数据
 	static UINT GetIniInt(LPCTSTR lpAppName, LPCTSTR   lpKeyName,  INT nDefault);
+
+protected:
+	ULONG_PTR m_gdiplusToken;
 };
 
 extern CCarParkApp theApp;

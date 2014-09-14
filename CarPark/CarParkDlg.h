@@ -7,6 +7,9 @@
 
 #include "Server.h"
 #include "Client.h"
+#include "LightBtn.h"
+#include "StaticEx.h"
+#include "afxwin.h"
 
 // CCarParkDlg 对话框
 class CCarParkDlg : public CDialogEx
@@ -34,14 +37,10 @@ protected:
 	//CVideoView m_SrcVideoView, m_ConVideoView;
 	CVideoView *m_pVideoView[MAX_VIDEO_CHANNEL];	//子视频框窗体绑定
 
-	CStatic m_stcXD[4];								//选中通道信号量
-	CEdit m_edtXH[4];								//设置选中通道信号量阀值
-	int m_nIDs[4];									//当前选中通道的4个摄像头ID
-	CComboBox m_cboXD;								
+	CComboBox m_cboXD;					
 	CButton m_btnBC;
 
 	CButton m_btnYL;
-	CStatic m_stcNet;
 	CButton m_rdoClient;
 	CButton m_rdoServer;
 
@@ -49,11 +48,28 @@ protected:
 	CServer *m_pServer;
 	//客户端
 	CClient *m_pClient;
+	//COM口是否打开
+	BOOL m_bComInit;
 	//设备是否初始化
 	BOOL m_bDeviceInit;
 
+	Image *m_pImgLightRed;		//红灯
+	Image *m_pImgLightGreen;	//绿灯
+	Image *m_pImgLightRG;		//红绿灯
+	Image *m_pImgLightNone;		//熄灭
+	
+	CLightBtn m_LBtn[64];
+	CStaticEx m_stcCamInfo[64];
+
+	CWnd *m_wSelStc;
+
+	CComboBox m_cboRunModel;
 // Implementation
 protected:
+	int LoadImageFromResource(IN Image * &pImg,
+		IN UINT nResID, 
+		IN LPCSTR lpTyp);
+
 	CString GetBaseDir(const CString &path);
 	void ShowHideScreen();
 	void InitRect();
@@ -104,8 +120,16 @@ protected:
 	afx_msg LRESULT OnMsgViewDbClick(WPARAM wParam, LPARAM lParam);
 	afx_msg LRESULT OnMsgViewClick(WPARAM wParam, LPARAM lParam);
 
-	afx_msg void OnBnClickedButtonSave();
 	afx_msg void OnBnClickedButtonOpenView();
 
+	afx_msg int OnCreate(LPCREATESTRUCT lpCreateStruct);
+	afx_msg void OnBnClickedButton(UINT uID);
+	afx_msg void OnStnClickedStatic(UINT uID);
+	afx_msg HBRUSH OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor);
+	afx_msg void OnCbnSelchangeComboModle();
 	DECLARE_MESSAGE_MAP()
+public:
+	void SetSelStc(CWnd *wSelStc);
+	void InitLight(int nLightType);
+	void CtrlLight(int nID, int nLightType);
 };

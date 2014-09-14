@@ -74,6 +74,10 @@ typedef enum {
 #define   __fopen           _wfopen
 #endif
 
+#include <gdiplus.h>
+using namespace Gdiplus;
+#pragma comment(lib, "gdiplus.lib")
+
 #define WM_VIEW_CLICK		WM_USER+100
 #define WM_VIEW_DBCLICK		WM_USER+101
 #define MAX_VIDEO_CHANNEL	36
@@ -115,10 +119,17 @@ typedef enum {
 
 //#pragma comment(lib, "msimg32.lib")
 
+#define LIGHT_TYPE_NONE		0
+#define LIGHT_TYPE_RED		1
+#define LIGHT_TYPE_GREEN	2
+#define LIGHT_TYPE_RG		3
+
 typedef struct
 {
-	int nID;					//ID
-	int nLightColor;			//灯颜色，0 无；1 红；2 绿
+	int nID;				//ID
+	CString sGroupID;			//组ID
+	int nEffective;				//是否启用
+	int nLightType;				//灯颜色
 	int nBaseNum;				//检测基数
 	int nOffset;				//检测基数偏移量
 	int nRectX;					//
@@ -133,14 +144,15 @@ extern CDataBase g_DB;
 
 extern bool g_bAppRun;								//程序运行标志
 
-extern CString g_sDeviceID;								//设备编号
-
 extern int g_nNetType;								//该控制程序的网络类型 NETTYPE_CLIENT:客户端  NETTYPE_SERVER：服务器
 
 extern CArray<CAM_INFO *, CAM_INFO *&> g_pCamInfos;							//相机信息结构体
+extern CArray<CString> g_CamGroupID;							//该设备所有分组
 
 extern CSerialPort* g_pPort1;							//串口1
 extern CSerialPort* g_pPort2;							//串口2
+
+extern HCURSOR g_hCur;							//主界面光标
 
 
 #ifdef _UNICODE

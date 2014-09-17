@@ -126,7 +126,8 @@ using namespace Gdiplus;
 
 typedef struct
 {
-	int nID;				//ID
+	int nID;					//ID
+	CString sCarParkName;		//车位名
 	CString sGroupID;			//组ID
 	int nEffective;				//是否启用
 	int nLightType;				//灯颜色
@@ -144,6 +145,8 @@ extern CDataBase g_DB;
 
 extern bool g_bAppRun;								//程序运行标志
 
+extern CString g_sHostName;							//主机名
+
 extern int g_nNetType;								//该控制程序的网络类型 NETTYPE_CLIENT:客户端  NETTYPE_SERVER：服务器
 
 extern CArray<CAM_INFO *, CAM_INFO *&> g_pCamInfos;							//相机信息结构体
@@ -152,7 +155,9 @@ extern CArray<CString> g_CamGroupID;							//该设备所有分组
 extern CSerialPort* g_pPort1;							//串口1
 extern CSerialPort* g_pPort2;							//串口2
 
-extern HCURSOR g_hCur;							//主界面光标
+extern BOOL g_bComInit;		//COM口是否打开
+
+extern BOOL g_bDeviceInit;		//设备是否初始化
 
 
 #ifdef _UNICODE

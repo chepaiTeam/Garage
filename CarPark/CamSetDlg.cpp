@@ -33,6 +33,7 @@ void CCamSetDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_EDIT9, m_edtW);
 	DDX_Control(pDX, IDC_EDIT10, m_edtH);
 	DDX_Control(pDX, IDC_CHECK1, m_btnStart);
+	DDX_Control(pDX, IDC_EDIT13, m_edtCarParkName);
 }
 
 
@@ -60,6 +61,7 @@ BOOL CCamSetDlg::OnInitDialog()
 		CString str;
 		str.Format(_T("%02d"), m_pCamInfo->nID);
 		m_edtCamID.SetWindowText(str);
+		m_edtCarParkName.SetWindowText(m_pCamInfo->sCarParkName);
 		m_edtGroupID.SetWindowText(m_pCamInfo->sGroupID);
 		str.Format(_T("%d"), m_pCamInfo->nBaseNum);
 		m_edtBase.SetWindowText(str);
@@ -88,6 +90,7 @@ void CCamSetDlg::OnBnClickedOk()
 {
 	// TODO: 在此添加控件通知处理程序代码
 	CString sTemp;
+	m_edtCarParkName.GetWindowText(m_pCamInfo->sCarParkName);
 	m_edtGroupID.GetWindowText(m_pCamInfo->sGroupID);
 	m_edtBase.GetWindowText(sTemp);
 	m_pCamInfo->nBaseNum = _ttoi(sTemp);
@@ -104,8 +107,8 @@ void CCamSetDlg::OnBnClickedOk()
 	m_pCamInfo->nEffective = m_btnStart.GetCheck();
 
 	CString sSql;
-	sSql.Format(_T("UPDATE CamInfo SET GroupID = '%s', Effective = %d, BaseNum = %d, Offset = %d, RectX = %d, \
-		RectY = %d, RectW = %d, RectH = %d WHERE ID = %d"), m_pCamInfo->sGroupID, m_pCamInfo->nEffective, m_pCamInfo->nBaseNum
+	sSql.Format(_T("UPDATE CamInfo SET CarParkName = '%s', GroupID = '%s', Effective = %d, BaseNum = %d, Offset = %d, RectX = %d, \
+		RectY = %d, RectW = %d, RectH = %d WHERE PortID = %d"), m_pCamInfo->sCarParkName, m_pCamInfo->sGroupID, m_pCamInfo->nEffective, m_pCamInfo->nBaseNum
 		, m_pCamInfo->nOffset, m_pCamInfo->nRectX, m_pCamInfo->nRectY, m_pCamInfo->nRectW, m_pCamInfo->nRectH, m_pCamInfo->nID);
 	g_DB.ExecuteSQL((_bstr_t)sSql);
 

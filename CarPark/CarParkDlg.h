@@ -48,10 +48,6 @@ protected:
 	CServer *m_pServer;
 	//客户端
 	CClient *m_pClient;
-	//COM口是否打开
-	BOOL m_bComInit;
-	//设备是否初始化
-	BOOL m_bDeviceInit;
 
 	Image *m_pImgLightRed;		//红灯
 	Image *m_pImgLightGreen;	//绿灯
@@ -127,9 +123,14 @@ protected:
 	afx_msg void OnStnClickedStatic(UINT uID);
 	afx_msg HBRUSH OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor);
 	afx_msg void OnCbnSelchangeComboModle();
+	afx_msg BOOL SetTipText(UINT id, NMHDR *pTTTStruct, LRESULT *pResult);
 	DECLARE_MESSAGE_MAP()
 public:
 	void SetSelStc(CWnd *wSelStc);
 	void InitLight(int nLightType);
 	void CtrlLight(int nID, int nLightType);
+	afx_msg void OnBnClickedButton1();
+	afx_msg void OnBnClickedRadio2();
+	afx_msg void OnBnClickedRadio1();
+	CButton m_btnServerSet;
 };

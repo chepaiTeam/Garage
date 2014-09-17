@@ -78,6 +78,8 @@ BOOL CCarParkApp::InitInstance()
 		return FALSE;
 	}
 
+	g_sHostName = GetIniString(_T("Device"), _T("HostName"), _T("S01"));
+
 	g_nNetType = GetIniInt(_T("NetData"), _T("NetType"), NETTYPE_CLIENT);
 
 	// 初始化socket dll
@@ -125,7 +127,7 @@ int CCarParkApp::ExitInstance()
 	// TODO: 在此添加专用代码和/或调用基类
 	CString str;
 	str.Format(_T("%d"), g_nNetType);
-	g_nNetType = WriteIniString(_T("NetData"), _T("NetType"), str);
+	WriteIniString(_T("NetData"), _T("NetType"), str);
 
 	// 释放winsock库
 	::WSACleanup();

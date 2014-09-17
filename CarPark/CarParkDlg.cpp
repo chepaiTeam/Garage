@@ -7,6 +7,7 @@
 #include "CarParkDlg.h"
 #include "afxdialogex.h"
 #include "CamSetDlg.h"
+#include "ServerSetDlg.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -49,8 +50,8 @@ CCarParkDlg::CCarParkDlg(CWnd* pParent /*=NULL*/)
 		m_pVideoView[i] = NULL;
 	}
 
-	m_bComInit = FALSE;
-	m_bDeviceInit = FALSE;
+	g_bComInit = FALSE;
+	g_bDeviceInit = FALSE;
 	m_nViewMode = 4;
 	g_pPort1 = NULL;
 	g_pPort2 = NULL;
@@ -94,6 +95,7 @@ void CCarParkDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_RADIO2, m_rdoServer);
 	DDX_Control(pDX, IDC_COMBO_MODLE, m_cboRunModel);
 	//}}AFX_DATA_MAP
+	DDX_Control(pDX, IDC_BUTTON1, m_btnServerSet);
 }
 
 BEGIN_MESSAGE_MAP(CCarParkDlg, CDialogEx)
@@ -114,6 +116,10 @@ BEGIN_MESSAGE_MAP(CCarParkDlg, CDialogEx)
 	ON_CONTROL_RANGE(BN_CLICKED, IDC_STATIC_ID, IDC_STATIC_ID + 64, OnStnClickedStatic)
 	ON_WM_CTLCOLOR()
 	ON_CBN_SELCHANGE(IDC_COMBO_MODLE, &CCarParkDlg::OnCbnSelchangeComboModle)
+	ON_NOTIFY_EX(TTN_NEEDTEXT, 0, SetTipText)
+	ON_BN_CLICKED(IDC_BUTTON1, &CCarParkDlg::OnBnClickedButton1)
+	ON_BN_CLICKED(IDC_RADIO2, &CCarParkDlg::OnBnClickedRadio2)
+	ON_BN_CLICKED(IDC_RADIO1, &CCarParkDlg::OnBnClickedRadio1)
 END_MESSAGE_MAP()
 
 
@@ -171,6 +177,20 @@ BOOL CCarParkDlg::OnInitDialog()
 {
 	CDialogEx::OnInitDialog();
 
+	//for (int i = 0; i < 16; i++)
+	//{
+	//	CString str;
+	//	str.Format("UPDATE CamInfo SET GroupID = 'a' where PortID = %d", i + 1);
+	//	g_DB.ExecuteSQL(_bstr_t(str));
+	//	str.Format("UPDATE CamInfo SET GroupID = 'b' where PortID = %d", i + 16 + 1);
+	//	g_DB.ExecuteSQL(_bstr_t(str));
+	//	str.Format("UPDATE CamInfo SET GroupID = 'c' where PortID = %d", i + 32 + 1);
+	//	g_DB.ExecuteSQL(_bstr_t(str));
+	//	str.Format("UPDATE CamInfo SET GroupID = 'd' where PortID = %d", i + 48 + 1);
+	//	g_DB.ExecuteSQL(_bstr_t(str));
+	//}
+
+
 	// 设置此对话框的图标。当应用程序主窗口不是对话框时，框架将自动
 	//  执行此操作
 	SetIcon(m_hIcon, TRUE);			// 设置大图标
@@ -178,6 +198,14 @@ BOOL CCarParkDlg::OnInitDialog()
 
 	// TODO: 在此添加额外的初始化代码
 	//ShowWindow(SW_SHOWMAXIMIZED);
+	CString sTitle;
+	GetWindowText(sTitle);
+	CString sNewTitle;
+	sNewTitle.Format(_T("%s 主机名：%s"), sTitle, g_sHostName);
+	SetWindowText(sNewTitle);
+
+	EnableToolTips(TRUE);
+	//SetDelayTime
 
 	RegisterMessageNotifyHandle(this->GetSafeHwnd(), 1900);
 	TCHAR buf[MAX_PATH+1];
@@ -209,11 +237,11 @@ BOOL CCarParkDlg::OnInitDialog()
 	m_cboRunModel.AddString(_T("调试"));
 	m_cboRunModel.SetCurSel(g_nRunModel);
 
-	//窗体布局
-	InitRect();
-
 	//加载相机信息
 	LoadCamData();
+
+	//窗体布局
+	InitRect();
 
 	//启动串口1数据采集
 	g_pPort1 = new CSerialPort(); 
@@ -229,7 +257,7 @@ BOOL CCarParkDlg::OnInitDialog()
 		g_pPort2->StartMonitoring();
 		g_pPort2->WriteToPort(_T("@1A1&"));
 
-		m_bComInit = TRUE;
+		g_bComInit = TRUE;
 
 		InitLight(LIGHT_TYPE_GREEN);
 
@@ -242,6 +270,7 @@ BOOL CCarParkDlg::OnInitDialog()
 	if (g_nNetType == NETTYPE_CLIENT)
 	{
 		m_rdoClient.SetCheck(TRUE);
+		m_btnServerSet.EnableWindow(FALSE);
 	}else
 	{
 		m_rdoServer.SetCheck(TRUE);
@@ -257,7 +286,7 @@ BOOL CCarParkDlg::OnInitDialog()
 
 void CCarParkDlg::InitLight(int nLightType)
 {
-	if (!m_bComInit)
+	if (!g_bComInit)
 		MessageBox(_T("串口未打开"));
 
 	int nCamCount = g_pCamInfos.GetCount();
@@ -274,7 +303,7 @@ void CCarParkDlg::InitLight(int nLightType)
 
 void CCarParkDlg::CtrlLight(int nID, int nLightType)
 {
-	if (!m_bComInit)
+	if (!g_bComInit)
 		return;
 
 	CString str;
@@ -372,7 +401,7 @@ void CCarParkDlg::CamThread(LPVOID pParam)
 	Sleep(500);
 
 	//设备初始化完成
-	ui->m_bDeviceInit = TRUE;
+	g_bDeviceInit = TRUE;
 
 	unsigned int uCamNum = g_TotalChannel * 4;
 	unsigned int uCarNum = 0;
@@ -604,7 +633,7 @@ void CCarParkDlg::CVData(LPVOID pParam)
 		//	}
 		//}
 
-		str.Format(_T("%02d-%d"), g_pCamInfos[uCamID]->nID, Num);
+		str.Format(_T("%s-%d"), g_pCamInfos[uCamID]->sCarParkName, Num);
 		ui->m_stcCamInfo[uCamID].SetWindowText(str);
 
 		//if (j == ui->m_Current)
@@ -829,9 +858,14 @@ void CCarParkDlg::LoadCamData()
 	{
 		CAM_INFO *pCamInfo = new CAM_INFO;
 
-		if (rs->GetCollect(_T("ID")).vt != VT_NULL)
+		if (rs->GetCollect(_T("PortID")).vt != VT_NULL)
 		{
-			pCamInfo->nID = _ttoi((LPCSTR)(_bstr_t)rs->GetCollect(_T("ID")));
+			pCamInfo->nID = _ttoi((LPCSTR)(_bstr_t)rs->GetCollect(_T("PortID")));
+		}
+
+		if (rs->GetCollect(_T("CarParkName")).vt != VT_NULL)
+		{
+			pCamInfo->sCarParkName = (LPCSTR)(_bstr_t)rs->GetCollect(_T("CarParkName"));
 		}
 
 		if (rs->GetCollect(_T("GroupID")).vt != VT_NULL)
@@ -889,6 +923,7 @@ void CCarParkDlg::LoadCamData()
 		CAM_INFO *pCamInfo = new CAM_INFO;
 		//给默认值
 		pCamInfo->nID = -1;
+		pCamInfo->sCarParkName = "";
 		pCamInfo->sGroupID = "";
 		pCamInfo->nEffective = 1;
 		pCamInfo->nBaseNum = 50;
@@ -1041,7 +1076,7 @@ CString CCarParkDlg::GetBaseDir(const CString &path)
 void CCarParkDlg::OnBnClickedButtonOpenView()
 {
 	// TODO: 在此添加控件通知处理程序代码
-	if (!m_bDeviceInit)
+	if (!g_bDeviceInit)
 	{
 		return;
 	}
@@ -1113,14 +1148,14 @@ void CCarParkDlg::InitRect()
 			{
 				for (int l = 0; l < 2; l++)
 				{
-					m_LBtn[i * 8 + j * 4 + k * 2 + l].MoveWindow(m_Onerect.right + 20 + j * 220 + k * 90, 65 + i * 70 + l * 30, 25, 25);
-					m_stcCamInfo[i * 8 + j * 4 + k * 2 + l].MoveWindow(m_Onerect.right + 47 + j * 220 + k * 90, 71 + i * 70 + l * 30, 50, 20);
-					str.Format("%02d-0", i * 8 + j * 4 + k * 2 + l + 1);
+					m_LBtn[i * 8 + j * 4 + k * 2 + l].MoveWindow(m_Onerect.right + 20 + j * 220 + k * 100, 65 + i * 70 + l * 30, 25, 25);
+					m_stcCamInfo[i * 8 + j * 4 + k * 2 + l].MoveWindow(m_Onerect.right + 47 + j * 220 + k * 100, 71 + i * 70 + l * 30, 72, 20);
+					str.Format("%s-0", g_pCamInfos.GetAt(i * 8 + j * 4 + k * 2 + l)->sCarParkName);
 					m_stcCamInfo[i * 8 + j * 4 + k * 2 + l].SetWindowText(str);
 
-					m_LBtn[i * 8 + j * 4 + k * 2 + l + 32].MoveWindow(m_Onerect.right + 20 + j * 220 + k * 90, 391 + i * 70 + l * 30, 25, 25);
-					m_stcCamInfo[i * 8 + j * 4 + k * 2 + l + 32].MoveWindow(m_Onerect.right + 47 + j * 220 + k * 90, 397 + i * 70 + l * 30, 50, 20);
-					str.Format("%02d-0", i * 8 + j * 4 + k * 2 + l + 32 + 1);
+					m_LBtn[i * 8 + j * 4 + k * 2 + l + 32].MoveWindow(m_Onerect.right + 20 + j * 220 + k * 100, 391 + i * 70 + l * 30, 25, 25);
+					m_stcCamInfo[i * 8 + j * 4 + k * 2 + l + 32].MoveWindow(m_Onerect.right + 47 + j * 220 + k * 100, 397 + i * 70 + l * 30, 72, 20);
+					str.Format("%s-0", g_pCamInfos.GetAt(i * 8 + j * 4 + k * 2 + l + 32)->sCarParkName);
 					m_stcCamInfo[i * 8 + j * 4 + k * 2 + l + 32].SetWindowText(str);
 				}
 			}
@@ -1229,7 +1264,7 @@ BOOL CCarParkDlg::DestroyWindow()
 	if (m_pServer)
 	{
 		m_pServer->CloseSocket();
-		Sleep(1000);
+		Sleep(500);
 		delete m_pServer;
 		m_pServer = NULL;
 	}
@@ -1237,7 +1272,7 @@ BOOL CCarParkDlg::DestroyWindow()
 	if (m_pClient)
 	{
 		m_pClient->CloseSocket();
-		Sleep(1000);
+		Sleep(500);
 		delete m_pClient;
 		m_pClient = NULL;
 	}
@@ -1297,4 +1332,92 @@ void CCarParkDlg::OnCbnSelchangeComboModle()
 	// TODO: 在此添加控件通知处理程序代码
 	g_nRunModel = m_cboRunModel.GetCurSel();
 	InitLight(LIGHT_TYPE_GREEN);
+}
+
+BOOL CCarParkDlg::SetTipText(UINT id, NMHDR *pTTTStruct, LRESULT *pResult)   
+{   
+	TOOLTIPTEXT *pTTT = (TOOLTIPTEXT *)pTTTStruct;           
+	UINT nID = pTTTStruct->idFrom;   //得到相应窗口ID，有可能是HWND   
+
+	//表明nID是否为HWND
+	if (pTTT->uFlags & TTF_IDISHWND)   
+	{
+		//从HWND得到ID值，当然你也可以通过HWND值来判断
+		nID = ::GetDlgCtrlID((HWND)nID);
+		if (NULL == nID)
+			return FALSE;
+
+		if (nID >= IDC_STATIC_ID && nID < (IDC_STATIC_ID + 64))
+		{
+			int nIndex = nID - IDC_STATIC_ID;
+			CString str;
+			str.Format(_T("接口ID:%02d 车位组:%s 阀值:%d 偏移值:%d"),g_pCamInfos[nIndex]->nID , g_pCamInfos[nIndex]->sGroupID, g_pCamInfos[nIndex]->nBaseNum
+				, g_pCamInfos[nIndex]->nOffset);
+			strcpy(pTTT->lpszText, str);
+		}
+		switch(nID)
+		{
+		case IDC_STATIC_ID:      
+			break;
+		case IDC_STATIC_ID + 1:  
+			//设置相应的显示字串   
+			break;
+		default:
+			break;
+		}
+
+		return TRUE;
+	}   
+	return FALSE;   
+} 
+
+void CCarParkDlg::OnBnClickedButton1()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	CServerSetDlg ServerSetDlg;
+	ServerSetDlg.DoModal();
+}
+
+//客户端
+void CCarParkDlg::OnBnClickedRadio1()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	if (m_pServer)
+	{
+		if (MessageBox(_T("是否关闭统计？"), _T("提示"), MB_YESNO) == IDYES)
+		{
+			m_pServer->CloseSocket();
+			Sleep(500);
+			delete m_pServer;
+			m_pServer = NULL;
+
+			g_nNetType = NETTYPE_CLIENT;
+			m_btnServerSet.EnableWindow(FALSE);
+		}else
+		{
+			m_rdoClient.SetCheck(FALSE);
+			m_rdoServer.SetCheck(TRUE);
+		}
+	}
+}
+
+//服务器
+void CCarParkDlg::OnBnClickedRadio2()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	if (!m_pServer)
+	{
+		if (MessageBox(_T("是否开启统计？"), _T("提示"), MB_YESNO) == IDYES)
+		{
+			m_pServer = new CServer;
+			m_pServer->InitServer();
+			g_nNetType = NETTYPE_SERVER;
+
+			m_btnServerSet.EnableWindow(TRUE);
+		}else
+		{
+			m_rdoClient.SetCheck(TRUE);
+			m_rdoServer.SetCheck(FALSE);
+		}
+	}
 }

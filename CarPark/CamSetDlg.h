@@ -35,4 +35,5 @@ protected:
 	CAM_INFO *m_pCamInfo;
 public:
 	void SetCamInfo(CAM_INFO *pCamInfo);
+	CEdit m_edtCarParkName;
 };

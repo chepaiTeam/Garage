@@ -84,6 +84,9 @@
     <ClInclude Include="CustomEditCtrl.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="ServerSetDlg.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="CarPark.cpp">
@@ -123,6 +126,9 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="CustomEditCtrl.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="ServerSetDlg.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

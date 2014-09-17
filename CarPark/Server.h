@@ -11,6 +11,7 @@ typedef struct
 typedef struct
 {
 	CString sAddress;				//地址码+区位
+	CString sGroups;					//车位组
 	CString sDirection;					//方向
 	unsigned int uParkingLotNum;		//车位数量
 	CString sTextRgb;					//文字颜色字符串
@@ -49,7 +50,7 @@ public:
 	/// <summary> 
 	/// 加载数据库中LED设备数据信息
 	/// </summary> 
-	void LoadData();
+	static void LoadData();
 
 	// 关闭socket库
 	bool CloseSocket();
@@ -73,3 +74,4 @@ public:
 	static void STCPRecvThread(LPVOID pParam);
 };
 
+extern BOOL g_bLedChange;	//Led信息是否改变

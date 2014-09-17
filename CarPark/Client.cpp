@@ -30,7 +30,7 @@ void CClient::InitClient()
 	// 创建socket套接字
 	if (SOCKET_ERROR == (g_sCastRecv = ::socket(AF_INET, SOCK_DGRAM, /*IPPROTO_TCP*/0)))
 	{
-		AfxMessageBox("Init Socket Error!\n");
+		TCHAR("Init Socket Error3333333333333333333333333333333!\n");
 		return;
 	}
 
@@ -44,7 +44,7 @@ void CClient::InitClient()
 	sin.sin_addr.S_un.S_addr = INADDR_ANY;
 	if (::bind(g_sCastRecv, (LPSOCKADDR)&sin, sizeof(sockaddr_in)) == SOCKET_ERROR)
 	{
-		AfxMessageBox("Bind Error!\n");
+		TRACE("Bind Error!\n");
 		return;
 	}
 
@@ -57,7 +57,7 @@ void CClient::StartClientThread(LPVOID pParam)
 	// 初始化socket套接字
 	if (SOCKET_ERROR == (g_sTCPClient = ::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)))
 	{
-		AfxMessageBox("Init Socket Error!\n");
+		TRACE("Init Socket Error444444444444444444444444444!\n");
 		return;
 	}
 
@@ -143,7 +143,7 @@ void CClient::CTCPSendThread(LPVOID pParam)
 				&& tMsgGroupInfos[i].nRedLightNum == nRedNum
 				&& nTimer % 200 != 0)
 			{
-				//continue;
+				continue;
 			}
 
 			tMsgGroupInfos[i].nNoneLightNum = nNoneNum;
@@ -153,7 +153,7 @@ void CClient::CTCPSendThread(LPVOID pParam)
 
 			if (SOCKET_ERROR == ::send(g_sTCPClient, (char*)(&tMsgGroupInfos[i]), sizeof(CCSDef::TMSG_GROUPINFO), 0))
 			{
-				TRACE("Send Data Error!\n");
+				TCHAR("Send Data Error!\n");
 				if (g_bAppRun)
 				{
 					::closesocket(g_sTCPClient);
@@ -195,10 +195,10 @@ void CClient::CTCPRecvThread(LPVOID pParam)
 			break;
 		case MSG_LEDINFO:
 			{
-				CCSDef::TMSG_LEDINFO* pLedMsg = new CCSDef::TMSG_LEDINFO;
-				memcpy(pLedMsg, pMsgHeader, sizeof(CCSDef::TMSG_LEDINFO));
-				//解析字符串加发送串口数据
-				::CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)CJXDataThread, pLedMsg, 0, NULL);
+				//CCSDef::TMSG_LEDINFO* pLedMsg = new CCSDef::TMSG_LEDINFO;
+				//memcpy(pLedMsg, pMsgHeader, sizeof(CCSDef::TMSG_LEDINFO));
+				////解析字符串加发送串口数据
+				//::CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)CJXDataThread, pLedMsg, 0, NULL);
 			}
 			break;
 		}
@@ -367,12 +367,15 @@ void CClient::CJXDataThread(LPVOID pParam)
 			}
 			CString sLedData;
 			sLedData.Format(_T("/P%s%s%s%s%03d>"), LedInfo.sAddress, LedInfo.sDirection, sTagRgb, sTextRgb, LedInfo.uParkingLotNum);
-			if (LedInfo.nComNum == 1)
+			if (g_bComInit)
 			{
-				g_pPort1->WriteToPort(sLedData);
-			}else if (LedInfo.nComNum == 2)
-			{
-				g_pPort2->WriteToPort(sLedData);
+				if (LedInfo.nComNum == 1)
+				{
+					g_pPort1->WriteToPort(sLedData);
+				}else if (LedInfo.nComNum == 2)
+				{
+					g_pPort2->WriteToPort(sLedData);
+				}
 			}
 		}
 		nS2 = 0;
@@ -410,7 +413,7 @@ void CClient::CCastRecvThread(LPVOID pParam)
 		if(SOCKET_ERROR == r || r < 0)
 		{
 			Sleep(300);
-			TRACE("Recv Data Error!\n");
+			TRACE("Recv Data Error555555555555555555555555555555555555555!\n");
 			continue;
 		}
 
@@ -433,7 +436,8 @@ void CClient::CCastRecvThread(LPVOID pParam)
 				CCSDef::TMSG_LEDINFO* pLedMsg = new CCSDef::TMSG_LEDINFO;
 				memcpy(pLedMsg, pMsgHeader, sizeof(CCSDef::TMSG_LEDINFO));
 				//解析字符串加发送串口数据
-				::CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)CJXDataThread, pLedMsg, 0, NULL);
+				CJXDataThread(pLedMsg);
+				//::CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)CJXDataThread, pLedMsg, 0, NULL);
 			}
 			break;
 		}
